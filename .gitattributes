@@ -1,0 +1,46 @@
+* text=auto eol=lf
+
+# Scripts and shaders
+*.cs text diff=csharp
+*.shader text
+*.cginc text
+*.hlsl text
+*.compute text
+*.asmdef text
+*.asmref text
+*.json text
+*.md text
+*.uxml text
+*.uss text
+
+# Unity YAML assets
+*.meta text eol=lf
+*.unity text merge=unityyamlmerge eol=lf
+*.prefab text merge=unityyamlmerge eol=lf
+*.asset text merge=unityyamlmerge eol=lf
+*.mat text merge=unityyamlmerge eol=lf
+*.anim text merge=unityyamlmerge eol=lf
+*.controller text merge=unityyamlmerge eol=lf
+*.overrideController text merge=unityyamlmerge eol=lf
+*.mask text merge=unityyamlmerge eol=lf
+*.playable text merge=unityyamlmerge eol=lf
+*.physicMaterial text merge=unityyamlmerge eol=lf
+*.physicsMaterial2D text merge=unityyamlmerge eol=lf
+*.terrainlayer text merge=unityyamlmerge eol=lf
+
+# Binary assets
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.tga binary
+*.exr binary
+*.psd binary
+*.psb binary
+*.fbx binary
+*.blend binary
+*.wav binary
+*.mp3 binary
+*.ogg binary
+*.mp4 binary
+*.mov binary

@@ -1,0 +1,14 @@
+{
+  "name": "SugiCho.ImageProcessTool.Runtime",
+  "rootNamespace": "SugiCho.ImageProcessTool",
+  "references": [],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

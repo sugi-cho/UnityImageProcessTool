@@ -1,0 +1,45 @@
+# Unity generated folders
+/[Ll]ibrary/
+/[Tt]emp/
+/[Oo]bj/
+/[Bb]uild/
+/[Bb]uilds/
+/[Ll]ogs/
+/UserSettings/
+/MemoryCaptures/
+/Recordings/
+
+# Addressables and build cache
+/Assets/AddressableAssetsData/*/*.bin*
+/Assets/StreamingAssets/aa.meta
+/Assets/StreamingAssets/aa/
+
+# IDE and OS files
+.vs/
+.idea/
+.gradle/
+ExportedObj/
+.consulo/
+
+*.csproj
+*.unityproj
+*.sln
+*.suo
+*.tmp
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+
+# Unity package cache files
+*.apk
+*.aab
+*.unitypackage
+
+# Crash reports
+sysinfo.txt
