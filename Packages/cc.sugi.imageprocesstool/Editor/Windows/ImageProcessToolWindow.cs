@@ -1,15 +1,18 @@
-using System.Linq;
 using UnityEditor;
+using UnityEditor.UIElements;
 using UnityEngine;
+using UnityEngine.UIElements;
 
 namespace sugi.cc.ImageProcessTool.Editor
 {
     public sealed class ImageProcessToolWindow : EditorWindow
     {
         private ImageProcessGraphAsset graphAsset;
-        private Vector2 scrollPosition;
-        private string statusMessage = "Select a graph asset to start.";
-        private MessageType statusMessageType = MessageType.Info;
+        private ImageProcessExecutionResult executionResult;
+
+        private ObjectField graphObjectField;
+        private HelpBox statusHelpBox;
+        private ImageProcessGraphView graphView;
 
         [MenuItem("Tools/sugi.cc/Image Process Tool")]
         public static void Open()
@@ -19,96 +22,79 @@ namespace sugi.cc.ImageProcessTool.Editor
             window.minSize = new Vector2(980f, 640f);
         }
 
-        private void OnGUI()
+        public void CreateGUI()
         {
-            DrawHeader();
+            rootVisualElement.Clear();
+            rootVisualElement.style.flexDirection = FlexDirection.Column;
 
-            if (graphAsset == null)
+            var toolbar = BuildToolbar();
+            graphView = new ImageProcessGraphView();
+            graphView.GraphDataChanged += OnGraphDataChanged;
+            statusHelpBox = new HelpBox("Create or assign ImageProcessGraphAsset.", HelpBoxMessageType.Info);
+
+            rootVisualElement.Add(toolbar);
+            rootVisualElement.Add(graphView);
+            rootVisualElement.Add(statusHelpBox);
+
+            if (graphAsset == null && Selection.activeObject is ImageProcessGraphAsset selected)
             {
-                EditorGUILayout.HelpBox("Create or assign ImageProcessGraphAsset.", MessageType.Info);
+                SetGraphAsset(selected);
+            }
+            else
+            {
+                SetGraphAsset(graphAsset);
+            }
+        }
+
+        private void OnDisable()
+        {
+            if (graphView != null)
+            {
+                graphView.GraphDataChanged -= OnGraphDataChanged;
+            }
+
+            DisposeExecutionResult();
+        }
+
+        private Toolbar BuildToolbar()
+        {
+            var toolbar = new Toolbar();
+
+            graphObjectField = new ObjectField("Graph")
+            {
+                objectType = typeof(ImageProcessGraphAsset),
+                allowSceneObjects = false
+            };
+            graphObjectField.RegisterValueChangedCallback(evt => SetGraphAsset(evt.newValue as ImageProcessGraphAsset));
+            toolbar.Add(graphObjectField);
+
+            toolbar.Add(new ToolbarButton(CreateGraphAsset) { text = "New" });
+            toolbar.Add(new ToolbarButton(() => AddNode(ImageProcessNodeKind.Source, "Source")) { text = "Add Source" });
+            toolbar.Add(new ToolbarButton(() => AddNode(ImageProcessNodeKind.ShaderOperator, "Shader")) { text = "Add Shader" });
+            toolbar.Add(new ToolbarButton(() => AddNode(ImageProcessNodeKind.Output, "Output")) { text = "Add Output" });
+            toolbar.Add(new ToolbarButton(SyncShaderNodes) { text = "Sync Shader Ports" });
+            toolbar.Add(new ToolbarButton(ValidateGraph) { text = "Validate" });
+            toolbar.Add(new ToolbarButton(SaveGraphAsset) { text = "Save" });
+            toolbar.Add(new ToolbarButton(() => graphView?.Rebuild()) { text = "Reload View" });
+
+            return toolbar;
+        }
+
+        private void SetGraphAsset(ImageProcessGraphAsset asset)
+        {
+            graphAsset = asset;
+            graphObjectField?.SetValueWithoutNotify(asset);
+            graphView?.BindGraph(asset);
+            DisposeExecutionResult();
+
+            if (asset == null)
+            {
+                SetStatus("Create or assign ImageProcessGraphAsset.", HelpBoxMessageType.Info);
                 return;
             }
 
-            DrawCommandBar();
-            DrawSerializedGraph();
-            EditorGUILayout.HelpBox(statusMessage, statusMessageType);
-        }
-
-        private void DrawHeader()
-        {
-            EditorGUILayout.Space(6f);
-            using (new EditorGUILayout.HorizontalScope())
-            {
-                var selected = (ImageProcessGraphAsset)EditorGUILayout.ObjectField("Graph", graphAsset, typeof(ImageProcessGraphAsset), false);
-                if (selected != graphAsset)
-                {
-                    graphAsset = selected;
-                    statusMessage = graphAsset == null ? "Select a graph asset to start." : "Graph selected.";
-                    statusMessageType = MessageType.Info;
-                }
-
-                if (GUILayout.Button("New", GUILayout.Width(80f)))
-                {
-                    CreateGraphAsset();
-                }
-
-                using (new EditorGUI.DisabledScope(graphAsset == null))
-                {
-                    if (GUILayout.Button("Ping", GUILayout.Width(80f)))
-                    {
-                        EditorGUIUtility.PingObject(graphAsset);
-                        Selection.activeObject = graphAsset;
-                    }
-                }
-            }
-        }
-
-        private void DrawCommandBar()
-        {
-            using (new EditorGUILayout.HorizontalScope())
-            {
-                if (GUILayout.Button("Add Source Node"))
-                {
-                    AddNode(ImageProcessNodeKind.Source, "Source");
-                }
-
-                if (GUILayout.Button("Add Shader Node"))
-                {
-                    AddNode(ImageProcessNodeKind.ShaderOperator, "Shader");
-                }
-
-                if (GUILayout.Button("Add Output Node"))
-                {
-                    AddNode(ImageProcessNodeKind.Output, "Output");
-                }
-
-                if (GUILayout.Button("Sync Shader Ports"))
-                {
-                    SyncShaderNodes();
-                }
-
-                if (GUILayout.Button("Validate Order"))
-                {
-                    ValidateExecutionOrder();
-                }
-            }
-        }
-
-        private void DrawSerializedGraph()
-        {
-            var serializedObject = new SerializedObject(graphAsset);
-            serializedObject.Update();
-
-            scrollPosition = EditorGUILayout.BeginScrollView(scrollPosition);
-            EditorGUILayout.PropertyField(serializedObject.FindProperty("nodes"), true);
-            EditorGUILayout.Space(8f);
-            EditorGUILayout.PropertyField(serializedObject.FindProperty("edges"), true);
-            EditorGUILayout.EndScrollView();
-
-            if (serializedObject.ApplyModifiedProperties())
-            {
-                EditorUtility.SetDirty(graphAsset);
-            }
+            SetStatus("Graph loaded. Auto-run is enabled.", HelpBoxMessageType.Info);
+            AutoExecuteGraph();
         }
 
         private void CreateGraphAsset()
@@ -127,78 +113,136 @@ namespace sugi.cc.ImageProcessTool.Editor
             var asset = CreateInstance<ImageProcessGraphAsset>();
             AssetDatabase.CreateAsset(asset, path);
             AssetDatabase.SaveAssets();
+            Selection.activeObject = asset;
 
-            graphAsset = asset;
-            statusMessage = "Graph asset created.";
-            statusMessageType = MessageType.Info;
+            SetGraphAsset(asset);
+            SetStatus("Graph asset created.", HelpBoxMessageType.Info);
         }
 
         private void AddNode(ImageProcessNodeKind kind, string defaultName)
         {
-            if (graphAsset == null)
+            if (!EnsureGraphAssigned())
             {
                 return;
             }
 
-            Undo.RecordObject(graphAsset, $"Add {kind} node");
-            graphAsset.AddNode(kind, defaultName);
-            EditorUtility.SetDirty(graphAsset);
-            AssetDatabase.SaveAssets();
-
-            statusMessage = $"Added {kind} node.";
-            statusMessageType = MessageType.Info;
+            graphView.AddNode(kind, defaultName);
+            SetStatus($"Added {kind} node.", HelpBoxMessageType.Info);
         }
 
         private void SyncShaderNodes()
         {
-            if (graphAsset == null)
+            if (!EnsureGraphAssigned())
             {
                 return;
             }
 
-            var shaderNodes = graphAsset.Nodes.Where(x => x.nodeKind == ImageProcessNodeKind.ShaderOperator).ToList();
-            if (shaderNodes.Count == 0)
+            var (synced, total, removedEdges) = graphView.SyncShaderPorts();
+            if (total == 0)
             {
-                statusMessage = "No shader node found.";
-                statusMessageType = MessageType.Warning;
+                SetStatus("No shader node found.", HelpBoxMessageType.Warning);
                 return;
             }
 
-            Undo.RecordObject(graphAsset, "Sync shader node ports");
-
-            var syncedCount = 0;
-            foreach (var node in shaderNodes)
+            var message = $"Synced {synced}/{total} shader node(s).";
+            if (removedEdges > 0)
             {
-                if (ShaderNodePortSynchronizer.TrySync(node, out _))
-                {
-                    syncedCount++;
-                }
+                message += $" Removed invalid edges: {removedEdges}.";
+            }
+
+            SetStatus(message, synced == total ? HelpBoxMessageType.Info : HelpBoxMessageType.Warning);
+        }
+
+        private void ValidateGraph()
+        {
+            if (!EnsureGraphAssigned())
+            {
+                return;
+            }
+
+            if (!ImageProcessGraphValidator.TryValidateForExecution(graphAsset, out var error))
+            {
+                SetStatus($"Graph invalid: {error}", HelpBoxMessageType.Error);
+                return;
+            }
+
+            if (!ImageProcessGraphTopology.TryBuildExecutionOrder(graphAsset, out var ordered, out error))
+            {
+                SetStatus($"Graph invalid: {error}", HelpBoxMessageType.Error);
+                return;
+            }
+
+            SetStatus($"Graph valid. Execution node count: {ordered.Count}", HelpBoxMessageType.Info);
+        }
+
+        private void SaveGraphAsset()
+        {
+            if (!EnsureGraphAssigned())
+            {
+                return;
             }
 
             EditorUtility.SetDirty(graphAsset);
             AssetDatabase.SaveAssets();
-
-            statusMessage = $"Synced {syncedCount}/{shaderNodes.Count} shader node(s).";
-            statusMessageType = syncedCount == shaderNodes.Count ? MessageType.Info : MessageType.Warning;
+            SetStatus("Graph asset saved.", HelpBoxMessageType.Info);
         }
 
-        private void ValidateExecutionOrder()
+        private bool EnsureGraphAssigned()
+        {
+            if (graphAsset != null)
+            {
+                return true;
+            }
+
+            SetStatus("Graph asset is not assigned.", HelpBoxMessageType.Warning);
+            return false;
+        }
+
+        private void OnGraphDataChanged()
+        {
+            AutoExecuteGraph();
+        }
+
+        private void AutoExecuteGraph()
         {
             if (graphAsset == null)
             {
                 return;
             }
 
-            if (ImageProcessGraphTopology.TryBuildExecutionOrder(graphAsset, out var ordered, out var error))
+            DisposeExecutionResult();
+            if (!ImageProcessGraphExecutor.TryExecute(graphAsset, out var result, out var error))
             {
-                statusMessage = $"Graph valid. Execution node count: {ordered.Count}";
-                statusMessageType = MessageType.Info;
+                graphView?.ApplyExecutionResult(null);
+                SetStatus($"Auto-run failed: {error}", HelpBoxMessageType.Warning);
                 return;
             }
 
-            statusMessage = $"Graph invalid: {error}";
-            statusMessageType = MessageType.Error;
+            executionResult = result;
+            graphView?.ApplyExecutionResult(executionResult);
+            SetStatus($"Auto-run completed. Output nodes: {executionResult.OutputNodeIds.Count}", HelpBoxMessageType.Info);
+        }
+
+        private void DisposeExecutionResult()
+        {
+            if (executionResult == null)
+            {
+                return;
+            }
+
+            executionResult.Dispose();
+            executionResult = null;
+        }
+
+        private void SetStatus(string message, HelpBoxMessageType type)
+        {
+            if (statusHelpBox == null)
+            {
+                return;
+            }
+
+            statusHelpBox.text = message;
+            statusHelpBox.messageType = type;
         }
     }
 }
-

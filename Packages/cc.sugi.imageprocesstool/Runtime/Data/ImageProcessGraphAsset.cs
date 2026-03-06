@@ -87,6 +87,43 @@ namespace sugi.cc.ImageProcessTool
             edges.RemoveAt(index);
         }
 
+        public bool RemoveEdge(string outputNodeId, string outputPortId, string inputNodeId, string inputPortId)
+        {
+            var removedCount = edges.RemoveAll(e =>
+                e.outputNodeId == outputNodeId &&
+                e.outputPortId == outputPortId &&
+                e.inputNodeId == inputNodeId &&
+                e.inputPortId == inputPortId);
+
+            return removedCount > 0;
+        }
+
+        public int RemoveInvalidEdges()
+        {
+            var nodeMap = nodes.ToDictionary(n => n.nodeId, n => n);
+            return edges.RemoveAll(edge =>
+            {
+                if (!nodeMap.TryGetValue(edge.outputNodeId, out var outputNode))
+                {
+                    return true;
+                }
+
+                if (!nodeMap.TryGetValue(edge.inputNodeId, out var inputNode))
+                {
+                    return true;
+                }
+
+                var outputPort = outputNode.outputPorts.FirstOrDefault(p => p.portId == edge.outputPortId);
+                var inputPort = inputNode.inputPorts.FirstOrDefault(p => p.portId == edge.inputPortId);
+                if (outputPort == null || inputPort == null)
+                {
+                    return true;
+                }
+
+                return outputPort.portType != inputPort.portType;
+            });
+        }
+
         public ImageProcessNodeData FindNode(string nodeId)
         {
             return nodes.FirstOrDefault(n => n.nodeId == nodeId);

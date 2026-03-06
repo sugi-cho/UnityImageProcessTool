@@ -5,9 +5,13 @@ Unity Editor extension package for node-based image processing workflows.
 ## Current Status
 - Package scaffold is created.
 - Graph data model is implemented (`nodes`, `edges`, `port definitions`, `parameters`).
-- Editor window is available from `Tools/sugi.cc/Image Process Tool`.
+- GraphView-based node editor is available from `Tools/sugi.cc/Image Process Tool`.
 - Shader operator node can sync ports from assigned shader properties.
 - Basic graph topology validation (cycle/missing-node checks) is available.
+- Graph execution is available for `Source -> Shader -> Output`.
+- Graph edits auto-run the pipeline.
+- Nodes with `out_rgba` output show foldable previews.
+- Preview outputs can be saved per node as PNG/EXR/Texture2D Asset.
 
 ## Requirements
 - Unity 6.3 LTS (`6000.3`)
@@ -26,10 +30,13 @@ Example git URL format:
 ## Quick Start
 1. Open `Tools/sugi.cc/Image Process Tool`.
 2. Create a graph asset with `New`.
-3. Add nodes (`Source`, `Shader`, `Output`).
-4. Assign shader to shader node in the node list.
+3. Add nodes (`Source`, `Shader`, `Output`) in the graph canvas.
+   - You can also right-click the canvas to add nodes.
+4. Assign source textures and shaders from each node inspector area.
 5. Click `Sync Shader Ports` to auto-generate input ports and default parameter values.
-6. Configure `edges` and click `Validate Order`.
+6. Connect ports directly on the graph and click `Validate`.
+7. Edit graph data (connect, parameter change, source/shader change) and auto-run will update node previews.
+8. Open each node preview foldout and save output as PNG/EXR/Asset.
 
 ## Folder Structure
 - `Runtime/`: data and runtime-safe classes.
@@ -37,7 +44,7 @@ Example git URL format:
 
 ## Next Implementation Targets
 1. Dedicated GraphView UI for visual node editing.
-2. Type-safe edge validation (port type and direction checks).
-3. Graph execution pipeline with RenderTexture intermediates.
-4. Per-node output save (PNG/EXR).
+2. Inline editor UI for edge creation/removal and port-level inspection.
+3. Channel split/combine node execution.
+4. Intermediate preview thumbnails in the editor.
 

@@ -12,6 +12,8 @@ namespace sugi.cc.ImageProcessTool
         public ImageProcessNodeKind nodeKind;
         public Shader shader;
         public Texture sourceTexture;
+        public RenderTexture outputRenderTexture;
+        public bool previewExpanded;
         public Vector2 position;
         public List<ImageProcessPortDefinition> inputPorts = new();
         public List<ImageProcessPortDefinition> outputPorts = new();
