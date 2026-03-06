@@ -1,0 +1,90 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6300ff25bbd0efe46a49059788943230, type: 3}
+  m_Name: ImageProcessGraph
+  m_EditorClassIdentifier: sugi.cc.ImageProcessTool.Runtime::sugi.cc.ImageProcessTool.ImageProcessGraphAsset
+  graphVersion: 0.1.0
+  nodes:
+  - nodeId: ac540a5e7015490e9df1fc21fd0374cb
+    displayName: Invert
+    nodeKind: 1
+    shader: {fileID: -6465566751694194690, guid: de1fda702f86c7943b1d77218df6f94b, type: 3}
+    sourceTexture: {fileID: 0}
+    outputRenderTexture: {fileID: 0}
+    position: {x: 656, y: 202}
+    inputPorts:
+    - portId: _Tex
+      displayName: Tex
+      portType: 0
+      direction: 0
+      optional: 0
+    outputPorts:
+    - portId: out_rgba
+      displayName: RGBA
+      portType: 0
+      direction: 1
+      optional: 0
+    parameters: []
+  - nodeId: 957e8b3442e54caf8ba2c2bc9c39ac03
+    displayName: Source
+    nodeKind: 0
+    shader: {fileID: 0}
+    sourceTexture: {fileID: 2800000, guid: ba27c45cf0c04ad4cab7ca2db35b686b, type: 3}
+    outputRenderTexture: {fileID: 0}
+    position: {x: 167, y: 202}
+    inputPorts: []
+    outputPorts:
+    - portId: out_rgba
+      displayName: RGBA
+      portType: 0
+      direction: 1
+      optional: 0
+    parameters: []
+  - nodeId: 5b328e55070b499a8a8a14fc6bc0632c
+    displayName: Output
+    nodeKind: 4
+    shader: {fileID: 0}
+    sourceTexture: {fileID: 0}
+    outputRenderTexture: {fileID: 8400000, guid: b4caeec5842e0d442885b3e0890a929c, type: 2}
+    position: {x: 1099, y: 202}
+    inputPorts:
+    - portId: in_rgba
+      displayName: RGBA
+      portType: 0
+      direction: 0
+      optional: 0
+    outputPorts: []
+    parameters: []
+  - nodeId: d2445f3cd9214f818fc4e6661c2ce7bc
+    displayName: Source
+    nodeKind: 0
+    shader: {fileID: 0}
+    sourceTexture: {fileID: 8400000, guid: 14962dfcad71d504b84dfa054ee4d1af, type: 2}
+    outputRenderTexture: {fileID: 0}
+    position: {x: 167, y: 524}
+    inputPorts: []
+    outputPorts:
+    - portId: out_rgba
+      displayName: RGBA
+      portType: 0
+      direction: 1
+      optional: 0
+    parameters: []
+  edges:
+  - outputNodeId: ac540a5e7015490e9df1fc21fd0374cb
+    outputPortId: out_rgba
+    inputNodeId: 5b328e55070b499a8a8a14fc6bc0632c
+    inputPortId: in_rgba
+  - outputNodeId: 957e8b3442e54caf8ba2c2bc9c39ac03
+    outputPortId: out_rgba
+    inputNodeId: ac540a5e7015490e9df1fc21fd0374cb
+    inputPortId: _Tex
