@@ -1,7 +1,7 @@
 using System;
 using UnityEngine;
 
-namespace SugiCho.ImageProcessTool
+namespace sugi.cc.ImageProcessTool
 {
     [Serializable]
     public enum ImageProcessNodeKind
@@ -13,3 +13,4 @@ namespace SugiCho.ImageProcessTool
         Output = 4
     }
 }
+

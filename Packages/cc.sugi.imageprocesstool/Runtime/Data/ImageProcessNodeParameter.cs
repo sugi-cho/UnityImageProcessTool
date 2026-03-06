@@ -1,7 +1,7 @@
 using System;
 using UnityEngine;
 
-namespace SugiCho.ImageProcessTool
+namespace sugi.cc.ImageProcessTool
 {
     [Serializable]
     public sealed class ImageProcessNodeParameter
@@ -19,3 +19,4 @@ namespace SugiCho.ImageProcessTool
         }
     }
 }
+

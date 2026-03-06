@@ -1,6 +1,6 @@
 using System;
 
-namespace SugiCho.ImageProcessTool
+namespace sugi.cc.ImageProcessTool
 {
     [Serializable]
     public sealed class ImageProcessPortDefinition
@@ -21,3 +21,4 @@ namespace SugiCho.ImageProcessTool
         }
     }
 }
+

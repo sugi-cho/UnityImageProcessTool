@@ -1,6 +1,6 @@
 using System;
 
-namespace SugiCho.ImageProcessTool
+namespace sugi.cc.ImageProcessTool
 {
     [Serializable]
     public enum ImageProcessPortDirection
@@ -9,3 +9,4 @@ namespace SugiCho.ImageProcessTool
         Output = 1
     }
 }
+

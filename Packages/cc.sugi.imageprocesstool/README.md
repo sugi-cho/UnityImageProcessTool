@@ -1,11 +1,11 @@
-# SugiCho Image Process Tool
+# sugi.cc Image Process Tool
 
 Unity Editor extension package for node-based image processing workflows.
 
 ## Current Status
 - Package scaffold is created.
 - Graph data model is implemented (`nodes`, `edges`, `port definitions`, `parameters`).
-- Editor window is available from `Tools/SugiCho/Image Process Tool`.
+- Editor window is available from `Tools/sugi.cc/Image Process Tool`.
 - Shader operator node can sync ports from assigned shader properties.
 - Basic graph topology validation (cycle/missing-node checks) is available.
 
@@ -24,7 +24,7 @@ Example git URL format:
 `https://<your-repo-url>.git?path=/Packages/cc.sugi.imageprocesstool`
 
 ## Quick Start
-1. Open `Tools/SugiCho/Image Process Tool`.
+1. Open `Tools/sugi.cc/Image Process Tool`.
 2. Create a graph asset with `New`.
 3. Add nodes (`Source`, `Shader`, `Output`).
 4. Assign shader to shader node in the node list.
@@ -40,3 +40,4 @@ Example git URL format:
 2. Type-safe edge validation (port type and direction checks).
 3. Graph execution pipeline with RenderTexture intermediates.
 4. Per-node output save (PNG/EXR).
+

@@ -2,7 +2,7 @@ using System.Linq;
 using UnityEditor;
 using UnityEngine;
 
-namespace SugiCho.ImageProcessTool.Editor
+namespace sugi.cc.ImageProcessTool.Editor
 {
     public sealed class ImageProcessToolWindow : EditorWindow
     {
@@ -11,7 +11,7 @@ namespace SugiCho.ImageProcessTool.Editor
         private string statusMessage = "Select a graph asset to start.";
         private MessageType statusMessageType = MessageType.Info;
 
-        [MenuItem("Tools/SugiCho/Image Process Tool")]
+        [MenuItem("Tools/sugi.cc/Image Process Tool")]
         public static void Open()
         {
             var window = GetWindow<ImageProcessToolWindow>();
@@ -201,3 +201,4 @@ namespace SugiCho.ImageProcessTool.Editor
         }
     }
 }
+

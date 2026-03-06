@@ -1,6 +1,6 @@
 using System;
 
-namespace SugiCho.ImageProcessTool
+namespace sugi.cc.ImageProcessTool
 {
     [Serializable]
     public enum ImageProcessPortType
@@ -11,3 +11,4 @@ namespace SugiCho.ImageProcessTool
         Color = 3
     }
 }
+

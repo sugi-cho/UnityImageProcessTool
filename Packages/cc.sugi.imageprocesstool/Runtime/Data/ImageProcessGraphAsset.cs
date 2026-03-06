@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 
-namespace SugiCho.ImageProcessTool
+namespace sugi.cc.ImageProcessTool
 {
-    [CreateAssetMenu(menuName = "SugiCho/Image Process Graph", fileName = "ImageProcessGraph")]
+    [CreateAssetMenu(menuName = "sugi.cc/Image Process Graph", fileName = "ImageProcessGraph")]
     public sealed class ImageProcessGraphAsset : ScriptableObject
     {
         [SerializeField] private string graphVersion = "0.1.0";
@@ -101,3 +101,4 @@ namespace SugiCho.ImageProcessTool
         }
     }
 }
+

@@ -1,7 +1,7 @@
 using System.Collections.Generic;
-using UnityEditor;
+using UnityEngine.Rendering;
 
-namespace SugiCho.ImageProcessTool.Editor
+namespace sugi.cc.ImageProcessTool.Editor
 {
     public static class ShaderNodePortSynchronizer
     {
@@ -36,31 +36,32 @@ namespace SugiCho.ImageProcessTool.Editor
             var materialScope = new MaterialScope(shader);
             try
             {
-                var propertyCount = ShaderUtil.GetPropertyCount(shader);
+                var propertyCount = shader.GetPropertyCount();
                 for (var i = 0; i < propertyCount; i++)
                 {
-                    var flags = ShaderUtil.GetShaderPropertyFlags(shader, i);
-                    if ((flags & ShaderUtil.ShaderPropertyFlags.HideInInspector) != 0)
+                    var propertyFlags = shader.GetPropertyFlags(i);
+                    if ((propertyFlags & ShaderPropertyFlags.HideInInspector) != 0)
                     {
                         continue;
                     }
 
-                    var propertyName = ShaderUtil.GetPropertyName(shader, i);
-                    var displayName = ShaderUtil.GetPropertyDescription(shader, i);
+                    var propertyName = shader.GetPropertyName(i);
+                    var displayName = shader.GetPropertyDescription(i);
                     if (string.IsNullOrWhiteSpace(displayName))
                     {
                         displayName = propertyName;
                     }
 
-                    var propertyType = ShaderUtil.GetPropertyType(shader, i);
+                    var propertyType = shader.GetPropertyType(i);
                     switch (propertyType)
                     {
-                        case ShaderUtil.ShaderPropertyType.TexEnv:
+                        case ShaderPropertyType.Texture:
                             inputPorts.Add(new ImageProcessPortDefinition(propertyName, displayName, ImageProcessPortType.Texture, ImageProcessPortDirection.Input, false));
                             break;
 
-                        case ShaderUtil.ShaderPropertyType.Float:
-                        case ShaderUtil.ShaderPropertyType.Range:
+                        case ShaderPropertyType.Float:
+                        case ShaderPropertyType.Range:
+                        case ShaderPropertyType.Int:
                             inputPorts.Add(new ImageProcessPortDefinition(propertyName, displayName, ImageProcessPortType.Float, ImageProcessPortDirection.Input, true));
                             parameters.Add(new ImageProcessNodeParameter(propertyName, ImageProcessPortType.Float)
                             {
@@ -68,7 +69,7 @@ namespace SugiCho.ImageProcessTool.Editor
                             });
                             break;
 
-                        case ShaderUtil.ShaderPropertyType.Vector:
+                        case ShaderPropertyType.Vector:
                             inputPorts.Add(new ImageProcessPortDefinition(propertyName, displayName, ImageProcessPortType.Vector4, ImageProcessPortDirection.Input, true));
                             parameters.Add(new ImageProcessNodeParameter(propertyName, ImageProcessPortType.Vector4)
                             {
@@ -76,7 +77,7 @@ namespace SugiCho.ImageProcessTool.Editor
                             });
                             break;
 
-                        case ShaderUtil.ShaderPropertyType.Color:
+                        case ShaderPropertyType.Color:
                             inputPorts.Add(new ImageProcessPortDefinition(propertyName, displayName, ImageProcessPortType.Color, ImageProcessPortDirection.Input, true));
                             parameters.Add(new ImageProcessNodeParameter(propertyName, ImageProcessPortType.Color)
                             {
@@ -117,3 +118,4 @@ namespace SugiCho.ImageProcessTool.Editor
         }
     }
 }
+

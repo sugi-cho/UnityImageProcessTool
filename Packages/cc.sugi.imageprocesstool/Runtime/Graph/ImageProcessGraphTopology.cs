@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 
-namespace SugiCho.ImageProcessTool
+namespace sugi.cc.ImageProcessTool
 {
     public static class ImageProcessGraphTopology
     {
@@ -73,3 +73,4 @@ namespace SugiCho.ImageProcessTool
         }
     }
 }
+

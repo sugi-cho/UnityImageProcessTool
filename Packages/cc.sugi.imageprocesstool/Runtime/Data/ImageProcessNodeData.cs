@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace SugiCho.ImageProcessTool
+namespace sugi.cc.ImageProcessTool
 {
     [Serializable]
     public sealed class ImageProcessNodeData
@@ -49,3 +49,4 @@ namespace SugiCho.ImageProcessTool
         }
     }
 }
+
