@@ -1,4 +1,7 @@
 using UnityEngine;
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
 
 namespace sugi.cc.ImageProcessTool
 {
@@ -9,6 +12,7 @@ namespace sugi.cc.ImageProcessTool
         Manual
     }
 
+    [ExecuteAlways]
     [DisallowMultipleComponent]
     public sealed class ImageProcessGraphRunner : MonoBehaviour
     {
@@ -16,6 +20,7 @@ namespace sugi.cc.ImageProcessTool
         [SerializeField] private RenderTexture destination;
         [SerializeField] private ImageProcessRunnerUpdateTiming updateTiming = ImageProcessRunnerUpdateTiming.Update;
         [SerializeField] private bool executeOnEnable = true;
+        [SerializeField] private bool runInEditMode = true;
         [SerializeField] private bool logErrors = true;
 
         private string lastError = string.Empty;
@@ -40,7 +45,12 @@ namespace sugi.cc.ImageProcessTool
 
         private void OnEnable()
         {
-            if (!executeOnEnable)
+#if UNITY_EDITOR
+            EditorApplication.update -= OnEditorUpdate;
+            EditorApplication.update += OnEditorUpdate;
+#endif
+
+            if (!executeOnEnable || !ShouldExecuteInCurrentContext())
             {
                 return;
             }
@@ -48,8 +58,20 @@ namespace sugi.cc.ImageProcessTool
             ExecuteAndLogIfNeeded();
         }
 
+        private void OnDisable()
+        {
+#if UNITY_EDITOR
+            EditorApplication.update -= OnEditorUpdate;
+#endif
+        }
+
         private void Update()
         {
+            if (!Application.isPlaying)
+            {
+                return;
+            }
+
             if (updateTiming != ImageProcessRunnerUpdateTiming.Update)
             {
                 return;
@@ -60,6 +82,11 @@ namespace sugi.cc.ImageProcessTool
 
         private void LateUpdate()
         {
+            if (!Application.isPlaying)
+            {
+                return;
+            }
+
             if (updateTiming != ImageProcessRunnerUpdateTiming.LateUpdate)
             {
                 return;
@@ -94,6 +121,37 @@ namespace sugi.cc.ImageProcessTool
 
             result.Dispose();
             return true;
+        }
+
+#if UNITY_EDITOR
+        private void OnEditorUpdate()
+        {
+            if (Application.isPlaying || !isActiveAndEnabled || !runInEditMode)
+            {
+                return;
+            }
+
+            if (updateTiming == ImageProcessRunnerUpdateTiming.Manual)
+            {
+                return;
+            }
+
+            ExecuteAndLogIfNeeded();
+        }
+#endif
+
+        private bool ShouldExecuteInCurrentContext()
+        {
+            if (Application.isPlaying)
+            {
+                return true;
+            }
+
+#if UNITY_EDITOR
+            return runInEditMode;
+#else
+            return false;
+#endif
         }
 
         private void ExecuteAndLogIfNeeded()
