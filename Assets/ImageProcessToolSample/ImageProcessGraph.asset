@@ -20,6 +20,7 @@ MonoBehaviour:
     shader: {fileID: -6465566751694194690, guid: de1fda702f86c7943b1d77218df6f94b, type: 3}
     sourceTexture: {fileID: 0}
     outputRenderTexture: {fileID: 0}
+    previewExpanded: 1
     position: {x: 656, y: 202}
     inputPorts:
     - portId: _Tex
@@ -40,6 +41,7 @@ MonoBehaviour:
     shader: {fileID: 0}
     sourceTexture: {fileID: 2800000, guid: ba27c45cf0c04ad4cab7ca2db35b686b, type: 3}
     outputRenderTexture: {fileID: 0}
+    previewExpanded: 0
     position: {x: 167, y: 202}
     inputPorts: []
     outputPorts:
@@ -55,6 +57,7 @@ MonoBehaviour:
     shader: {fileID: 0}
     sourceTexture: {fileID: 0}
     outputRenderTexture: {fileID: 8400000, guid: b4caeec5842e0d442885b3e0890a929c, type: 2}
+    previewExpanded: 0
     position: {x: 1099, y: 202}
     inputPorts:
     - portId: in_rgba
@@ -70,6 +73,7 @@ MonoBehaviour:
     shader: {fileID: 0}
     sourceTexture: {fileID: 8400000, guid: 14962dfcad71d504b84dfa054ee4d1af, type: 2}
     outputRenderTexture: {fileID: 0}
+    previewExpanded: 1
     position: {x: 167, y: 524}
     inputPorts: []
     outputPorts:
@@ -84,7 +88,7 @@ MonoBehaviour:
     outputPortId: out_rgba
     inputNodeId: 5b328e55070b499a8a8a14fc6bc0632c
     inputPortId: in_rgba
-  - outputNodeId: 957e8b3442e54caf8ba2c2bc9c39ac03
+  - outputNodeId: d2445f3cd9214f818fc4e6661c2ce7bc
     outputPortId: out_rgba
     inputNodeId: ac540a5e7015490e9df1fc21fd0374cb
     inputPortId: _Tex
