@@ -38,6 +38,7 @@ namespace sugi.cc.ImageProcessTool.Editor
         public void BindGraph(ImageProcessGraphAsset graph)
         {
             graphAsset = graph;
+            graphAsset?.SyncParameterNodes();
             Rebuild();
         }
 
@@ -45,9 +46,9 @@ namespace sugi.cc.ImageProcessTool.Editor
         {
             foreach (var nodeView in nodeViews.Values)
             {
-                if (result != null && result.TryGetNodeOutput(nodeView.NodeData.nodeId, out var texture))
+                if (result != null && result.TryGetNodeOutputTexture(nodeView.NodeData.nodeId, out var outputTexture))
                 {
-                    nodeView.SetPreviewTexture(texture);
+                    nodeView.SetPreviewTexture(outputTexture);
                 }
                 else
                 {
@@ -74,6 +75,34 @@ namespace sugi.cc.ImageProcessTool.Editor
             {
                 node.position = localPosition;
             }
+
+            SaveGraphAsset();
+            Rebuild();
+            NotifyGraphDataChanged();
+        }
+
+        public void AddParameterNode(ImageProcessPortType parameterType, Vector2 localPosition)
+        {
+            if (graphAsset == null)
+            {
+                return;
+            }
+
+            Undo.RecordObject(graphAsset, $"Add {parameterType} parameter");
+            var baseName = parameterType switch
+            {
+                ImageProcessPortType.Texture => "Texture",
+                ImageProcessPortType.Float => "Float",
+                ImageProcessPortType.Vector4 => "Vector",
+                ImageProcessPortType.Color => "Color",
+                _ => "Parameter"
+            };
+
+            var parameter = graphAsset.AddParameter(baseName, parameterType);
+            var node = graphAsset.AddNode(ImageProcessNodeKind.Parameter, parameter.parameterName);
+            node.parameterId = parameter.parameterId;
+            graphAsset.SyncParameterNode(node);
+            node.position = localPosition;
 
             SaveGraphAsset();
             Rebuild();
@@ -126,6 +155,7 @@ namespace sugi.cc.ImageProcessTool.Editor
                 }
 
                 graphAsset.EnsureNodeIds();
+                graphAsset.SyncParameterNodes();
                 foreach (var nodeData in graphAsset.Nodes)
                 {
                     var nodeView = CreateNodeView(nodeData);
@@ -203,7 +233,10 @@ namespace sugi.cc.ImageProcessTool.Editor
             }
 
             var localPosition = this.ChangeCoordinatesTo(contentViewContainer, evt.localMousePosition);
-            evt.menu.AppendAction("Add/Source Node", _ => AddNode(ImageProcessNodeKind.Source, "Source", localPosition));
+            evt.menu.AppendAction("Add/Parameter/Texture", _ => AddParameterNode(ImageProcessPortType.Texture, localPosition));
+            evt.menu.AppendAction("Add/Parameter/Float", _ => AddParameterNode(ImageProcessPortType.Float, localPosition));
+            evt.menu.AppendAction("Add/Parameter/Vector4", _ => AddParameterNode(ImageProcessPortType.Vector4, localPosition));
+            evt.menu.AppendAction("Add/Parameter/Color", _ => AddParameterNode(ImageProcessPortType.Color, localPosition));
             evt.menu.AppendAction("Add/Shader Node", _ => AddNode(ImageProcessNodeKind.ShaderOperator, "Shader", localPosition));
             evt.menu.AppendAction("Add/Output Node", _ => AddNode(ImageProcessNodeKind.Output, "Output", localPosition));
         }
@@ -248,7 +281,8 @@ namespace sugi.cc.ImageProcessTool.Editor
                 nodeData,
                 onNodeDataChanged: OnNodeDataChanged,
                 onNodeViewStateChanged: OnNodeViewStateChanged,
-                onShaderSyncRequested: SyncSingleShaderNode);
+                onShaderSyncRequested: SyncSingleShaderNode,
+                parameterProvider: () => graphAsset?.Parameters);
         }
 
         private GraphViewChange OnGraphViewChanged(GraphViewChange change)
@@ -355,8 +389,25 @@ namespace sugi.cc.ImageProcessTool.Editor
             }
         }
 
-        private void OnNodeDataChanged()
+        private void OnNodeDataChanged(ImageProcessNodeData nodeData)
         {
+            if (graphAsset != null && nodeData != null)
+            {
+                if (nodeData.nodeKind == ImageProcessNodeKind.Parameter)
+                {
+                    graphAsset.SyncParameterNode(nodeData);
+                    graphAsset.RemoveInvalidEdges();
+                    Rebuild();
+                }
+
+                var uniqueName = graphAsset.MakeUniqueNodeDisplayName(nodeData.nodeKind, nodeData.displayName, nodeData.nodeId);
+                if (nodeData.displayName != uniqueName)
+                {
+                    nodeData.displayName = uniqueName;
+                    Rebuild();
+                }
+            }
+
             SaveGraphAsset();
             NotifyGraphDataChanged();
         }
@@ -426,9 +477,12 @@ namespace sugi.cc.ImageProcessTool.Editor
             {
                 if (dropped is Texture texture)
                 {
-                    var sourceNode = graphAsset.AddNode(ImageProcessNodeKind.Source, texture.name);
-                    sourceNode.sourceTexture = texture;
-                    sourceNode.position = position;
+                    var parameter = graphAsset.AddParameter(texture.name, ImageProcessPortType.Texture);
+                    parameter.textureValue = texture;
+                    var parameterNode = graphAsset.AddNode(ImageProcessNodeKind.Parameter, parameter.parameterName);
+                    parameterNode.parameterId = parameter.parameterId;
+                    graphAsset.SyncParameterNode(parameterNode);
+                    parameterNode.position = position;
                     createdAny = true;
                     position += DropNodeOffsetStep;
                     continue;
@@ -451,6 +505,7 @@ namespace sugi.cc.ImageProcessTool.Editor
             }
 
             graphAsset.RemoveInvalidEdges();
+            graphAsset.SyncParameterNodes();
             SaveGraphAsset();
             Rebuild();
             NotifyGraphDataChanged();

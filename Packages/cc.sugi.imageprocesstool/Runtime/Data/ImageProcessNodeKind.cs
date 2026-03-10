@@ -6,11 +6,9 @@ namespace sugi.cc.ImageProcessTool
     [Serializable]
     public enum ImageProcessNodeKind
     {
-        Source = 0,
-        ShaderOperator = 1,
-        ChannelSplit = 2,
-        ChannelCombine = 3,
-        Output = 4
+        // Keep numeric values stable for asset serialization.
+        ShaderOperator = 0,
+        Output = 1,
+        Parameter = 2
     }
 }
-

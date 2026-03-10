@@ -9,6 +9,15 @@ namespace sugi.cc.ImageProcessTool
     {
         public static bool TryExecute(ImageProcessGraphAsset graph, out ImageProcessExecutionResult result, out string error)
         {
+            return TryExecute(graph, null, out result, out error);
+        }
+
+        public static bool TryExecute(
+            ImageProcessGraphAsset graph,
+            IReadOnlyDictionary<string, ImageProcessGraphParameter> parameterOverrides,
+            out ImageProcessExecutionResult result,
+            out string error)
+        {
             result = null;
 
             if (!ImageProcessGraphValidator.TryValidateForExecution(graph, out error))
@@ -21,7 +30,7 @@ namespace sugi.cc.ImageProcessTool
                 return false;
             }
 
-            var outputs = new Dictionary<string, RenderTexture>();
+            var outputs = new Dictionary<string, ImageProcessValue>();
             var outputNodeIds = new List<string>();
             var incomingEdges = graph.Edges.GroupBy(e => e.inputNodeId).ToDictionary(g => g.Key, g => g.ToList());
 
@@ -29,7 +38,7 @@ namespace sugi.cc.ImageProcessTool
             {
                 foreach (var node in orderedNodes)
                 {
-                    if (!TryExecuteSingleNode(node, incomingEdges, outputs, out var nodeOutput, out error))
+                    if (!TryExecuteSingleNode(graph, node, parameterOverrides, incomingEdges, outputs, out var nodeOutput, out error))
                     {
                         ReleaseAll(outputs);
                         return false;
@@ -54,7 +63,7 @@ namespace sugi.cc.ImageProcessTool
             return true;
         }
 
-        public static bool TryExecuteToRenderTexture(ImageProcessGraphAsset graph, RenderTexture destination, out string error)
+        public static bool TryExecuteToRenderTexture(ImageProcessGraphAsset graph, string outputNodeId, RenderTexture destination, out string error)
         {
             error = string.Empty;
             if (destination == null)
@@ -70,9 +79,9 @@ namespace sugi.cc.ImageProcessTool
 
             try
             {
-                if (!result.TryGetFirstOutput(out _, out var output) || output == null)
+                if (!result.TryGetNodeOutputTexture(outputNodeId, out var output) || output == null)
                 {
-                    error = "No output node result found.";
+                    error = $"Output node result not found: {outputNodeId}";
                     return false;
                 }
 
@@ -91,17 +100,19 @@ namespace sugi.cc.ImageProcessTool
         }
 
         private static bool TryExecuteSingleNode(
+            ImageProcessGraphAsset graph,
             ImageProcessNodeData node,
+            IReadOnlyDictionary<string, ImageProcessGraphParameter> parameterOverrides,
             Dictionary<string, List<ImageProcessEdgeData>> incomingEdges,
-            Dictionary<string, RenderTexture> outputs,
-            out RenderTexture output,
+            Dictionary<string, ImageProcessValue> outputs,
+            out ImageProcessValue output,
             out string error)
         {
             output = null;
             switch (node.nodeKind)
             {
-                case ImageProcessNodeKind.Source:
-                    return TryExecuteSourceNode(node, out output, out error);
+                case ImageProcessNodeKind.Parameter:
+                    return TryExecuteParameterNode(graph, node, parameterOverrides, out output, out error);
 
                 case ImageProcessNodeKind.ShaderOperator:
                     return TryExecuteShaderNode(node, incomingEdges, outputs, out output, out error);
@@ -115,17 +126,63 @@ namespace sugi.cc.ImageProcessTool
             }
         }
 
-        private static bool TryExecuteSourceNode(ImageProcessNodeData node, out RenderTexture output, out string error)
+        private static bool TryExecuteParameterNode(
+            ImageProcessGraphAsset graph,
+            ImageProcessNodeData node,
+            IReadOnlyDictionary<string, ImageProcessGraphParameter> parameterOverrides,
+            out ImageProcessValue output,
+            out string error)
         {
             output = null;
-            if (node.sourceTexture == null)
+            var parameter = ResolveGraphParameter(graph, node.parameterId, parameterOverrides);
+            if (parameter == null)
             {
-                error = $"Source texture is missing: {node.displayName}";
+                error = $"Parameter not found: {node.displayName}";
                 return false;
             }
 
-            output = CreateOutputTexture(node.sourceTexture.width, node.sourceTexture.height);
-            Graphics.Blit(node.sourceTexture, output);
+            switch (parameter.parameterType)
+            {
+                case ImageProcessPortType.Texture:
+                    if (parameter.textureValue == null)
+                    {
+                        error = $"Texture parameter is missing: {parameter.parameterName}";
+                        return false;
+                    }
+
+                    if (parameter.textureValue is RenderTexture renderTexture && !renderTexture.IsCreated())
+                    {
+                        renderTexture.Create();
+                    }
+
+                    if (parameter.textureValue.width <= 0 || parameter.textureValue.height <= 0)
+                    {
+                        error = $"Texture parameter size is invalid: {parameter.parameterName}";
+                        return false;
+                    }
+
+                    var texture = CreateOutputTexture(parameter.textureValue.width, parameter.textureValue.height);
+                    Graphics.Blit(parameter.textureValue, texture);
+                    output = ImageProcessValue.FromTexture(texture);
+                    break;
+
+                case ImageProcessPortType.Float:
+                    output = ImageProcessValue.FromFloat(parameter.floatValue);
+                    break;
+
+                case ImageProcessPortType.Vector4:
+                    output = ImageProcessValue.FromVector(parameter.vectorValue);
+                    break;
+
+                case ImageProcessPortType.Color:
+                    output = ImageProcessValue.FromColor(parameter.colorValue);
+                    break;
+
+                default:
+                    error = $"Unsupported parameter type: {parameter.parameterType}";
+                    return false;
+            }
+
             error = string.Empty;
             return true;
         }
@@ -133,8 +190,8 @@ namespace sugi.cc.ImageProcessTool
         private static bool TryExecuteShaderNode(
             ImageProcessNodeData node,
             Dictionary<string, List<ImageProcessEdgeData>> incomingEdges,
-            Dictionary<string, RenderTexture> outputs,
-            out RenderTexture output,
+            Dictionary<string, ImageProcessValue> outputs,
+            out ImageProcessValue output,
             out string error)
         {
             output = null;
@@ -155,11 +212,6 @@ namespace sugi.cc.ImageProcessTool
                 RenderTexture firstInputTexture = null;
                 foreach (var inputPort in node.inputPorts)
                 {
-                    if (inputPort.portType != ImageProcessPortType.Texture)
-                    {
-                        continue;
-                    }
-
                     var edge = edges.FirstOrDefault(e => e.inputPortId == inputPort.portId);
                     if (edge == null)
                     {
@@ -168,24 +220,66 @@ namespace sugi.cc.ImageProcessTool
                             continue;
                         }
 
-                        error = $"Missing texture input: {node.displayName}.{inputPort.displayName}";
+                        error = $"Missing input: {node.displayName}.{inputPort.displayName}";
                         return false;
                     }
 
-                    if (!outputs.TryGetValue(edge.outputNodeId, out var inputTexture) || inputTexture == null)
+                    if (!outputs.TryGetValue(edge.outputNodeId, out var inputValue) || inputValue == null)
                     {
                         error = $"Missing upstream output: {edge.outputNodeId}";
                         return false;
                     }
 
-                    material.SetTexture(inputPort.portId, inputTexture);
-                    firstInputTexture ??= inputTexture;
+                    switch (inputPort.portType)
+                    {
+                        case ImageProcessPortType.Texture:
+                            if (!inputValue.TryGetTexture(out var inputTexture) || inputTexture == null)
+                            {
+                                error = $"Upstream output is not texture: {edge.outputNodeId}";
+                                return false;
+                            }
+
+                            material.SetTexture(inputPort.portId, inputTexture);
+                            firstInputTexture ??= inputTexture;
+                            break;
+
+                        case ImageProcessPortType.Float:
+                            if (inputValue.ValueType != ImageProcessPortType.Float)
+                            {
+                                error = $"Upstream output type mismatch: {edge.outputNodeId}";
+                                return false;
+                            }
+
+                            material.SetFloat(inputPort.portId, inputValue.FloatValue);
+                            break;
+
+                        case ImageProcessPortType.Vector4:
+                            if (inputValue.ValueType != ImageProcessPortType.Vector4)
+                            {
+                                error = $"Upstream output type mismatch: {edge.outputNodeId}";
+                                return false;
+                            }
+
+                            material.SetVector(inputPort.portId, inputValue.VectorValue);
+                            break;
+
+                        case ImageProcessPortType.Color:
+                            if (inputValue.ValueType != ImageProcessPortType.Color)
+                            {
+                                error = $"Upstream output type mismatch: {edge.outputNodeId}";
+                                return false;
+                            }
+
+                            material.SetColor(inputPort.portId, inputValue.ColorValue);
+                            break;
+                    }
                 }
 
                 var width = firstInputTexture != null ? firstInputTexture.width : 512;
                 var height = firstInputTexture != null ? firstInputTexture.height : 512;
-                output = CreateOutputTexture(width, height);
-                Graphics.Blit(Texture2D.blackTexture, output, material);
+                var texture = CreateOutputTexture(width, height);
+                Graphics.Blit(Texture2D.blackTexture, texture, material);
+                output = ImageProcessValue.FromTexture(texture);
             }
             finally
             {
@@ -203,8 +297,8 @@ namespace sugi.cc.ImageProcessTool
         private static bool TryExecuteOutputNode(
             ImageProcessNodeData node,
             Dictionary<string, List<ImageProcessEdgeData>> incomingEdges,
-            Dictionary<string, RenderTexture> outputs,
-            out RenderTexture output,
+            Dictionary<string, ImageProcessValue> outputs,
+            out ImageProcessValue output,
             out string error)
         {
             output = null;
@@ -216,26 +310,39 @@ namespace sugi.cc.ImageProcessTool
                 return false;
             }
 
-            if (!outputs.TryGetValue(inputEdge.outputNodeId, out var source) || source == null)
+            if (!outputs.TryGetValue(inputEdge.outputNodeId, out var sourceValue) ||
+                sourceValue == null ||
+                !sourceValue.TryGetTexture(out var source) ||
+                source == null)
             {
                 error = $"Output source is missing: {inputEdge.outputNodeId}";
                 return false;
             }
 
-            if (node.outputRenderTexture != null)
-            {
-                if (!node.outputRenderTexture.IsCreated())
-                {
-                    node.outputRenderTexture.Create();
-                }
-
-                Graphics.Blit(source, node.outputRenderTexture);
-            }
-
-            output = CreateOutputTexture(source.width, source.height);
-            Graphics.Blit(source, output);
+            var texture = CreateOutputTexture(source.width, source.height);
+            Graphics.Blit(source, texture);
+            output = ImageProcessValue.FromTexture(texture);
             error = string.Empty;
             return true;
+        }
+
+        private static ImageProcessGraphParameter ResolveGraphParameter(
+            ImageProcessGraphAsset graph,
+            string parameterId,
+            IReadOnlyDictionary<string, ImageProcessGraphParameter> parameterOverrides)
+        {
+            var parameter = graph.FindParameter(parameterId);
+            if (parameter == null)
+            {
+                return null;
+            }
+
+            if (parameterOverrides == null || !parameterOverrides.TryGetValue(parameter.parameterName, out var overrideParameter) || overrideParameter == null)
+            {
+                return parameter;
+            }
+
+            return overrideParameter;
         }
 
         private static void ApplyParameters(ImageProcessNodeData node, Material material)
@@ -278,7 +385,7 @@ namespace sugi.cc.ImageProcessTool
             return rt;
         }
 
-        private static void ReleaseAll(Dictionary<string, RenderTexture> outputs)
+        private static void ReleaseAll(Dictionary<string, ImageProcessValue> outputs)
         {
             var result = new ImageProcessExecutionResult(outputs, new List<string>());
             result.Dispose();

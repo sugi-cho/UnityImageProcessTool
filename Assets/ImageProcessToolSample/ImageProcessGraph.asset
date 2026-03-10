@@ -14,51 +14,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: sugi.cc.ImageProcessTool.Runtime::sugi.cc.ImageProcessTool.ImageProcessGraphAsset
   graphVersion: 0.1.0
   nodes:
-  - nodeId: ac540a5e7015490e9df1fc21fd0374cb
-    displayName: Invert
-    nodeKind: 1
-    shader: {fileID: -6465566751694194690, guid: de1fda702f86c7943b1d77218df6f94b, type: 3}
-    sourceTexture: {fileID: 0}
-    outputRenderTexture: {fileID: 0}
-    previewExpanded: 1
-    position: {x: 656, y: 202}
-    inputPorts:
-    - portId: _Tex
-      displayName: Tex
-      portType: 0
-      direction: 0
-      optional: 0
-    outputPorts:
-    - portId: out_rgba
-      displayName: RGBA
-      portType: 0
-      direction: 1
-      optional: 0
-    parameters: []
-  - nodeId: 957e8b3442e54caf8ba2c2bc9c39ac03
-    displayName: Source
-    nodeKind: 0
-    shader: {fileID: 0}
-    sourceTexture: {fileID: 2800000, guid: ba27c45cf0c04ad4cab7ca2db35b686b, type: 3}
-    outputRenderTexture: {fileID: 0}
-    previewExpanded: 0
-    position: {x: 167, y: 202}
-    inputPorts: []
-    outputPorts:
-    - portId: out_rgba
-      displayName: RGBA
-      portType: 0
-      direction: 1
-      optional: 0
-    parameters: []
-  - nodeId: 5b328e55070b499a8a8a14fc6bc0632c
+  - nodeId: 82f483a619a3444e951a7c6e4c4cc0a6
     displayName: Output
-    nodeKind: 4
+    nodeKind: 1
     shader: {fileID: 0}
-    sourceTexture: {fileID: 0}
-    outputRenderTexture: {fileID: 8400000, guid: b4caeec5842e0d442885b3e0890a929c, type: 2}
+    parameterId: 
     previewExpanded: 0
-    position: {x: 1099, y: 202}
+    position: {x: 876, y: 230}
     inputPorts:
     - portId: in_rgba
       displayName: RGBA
@@ -67,14 +29,45 @@ MonoBehaviour:
       optional: 0
     outputPorts: []
     parameters: []
-  - nodeId: d2445f3cd9214f818fc4e6661c2ce7bc
-    displayName: Source
+    legacyOutputRenderTexture: {fileID: 0}
+  - nodeId: 8eb0be631dfa44789d93810a0bb51ef5
+    displayName: Shader
     nodeKind: 0
-    shader: {fileID: 0}
-    sourceTexture: {fileID: 8400000, guid: 14962dfcad71d504b84dfa054ee4d1af, type: 2}
-    outputRenderTexture: {fileID: 0}
+    shader: {fileID: -6465566751694194690, guid: de1fda702f86c7943b1d77218df6f94b, type: 3}
+    parameterId: 
     previewExpanded: 1
-    position: {x: 167, y: 524}
+    position: {x: 540, y: 230}
+    inputPorts:
+    - portId: _Tex
+      displayName: Tex
+      portType: 0
+      direction: 0
+      optional: 0
+    - portId: _TintColor
+      displayName: TintColor
+      portType: 3
+      direction: 0
+      optional: 1
+    outputPorts:
+    - portId: out_rgba
+      displayName: RGBA
+      portType: 0
+      direction: 1
+      optional: 0
+    parameters:
+    - parameterName: _TintColor
+      parameterType: 3
+      floatValue: 0
+      vectorValue: {x: 0, y: 0, z: 0, w: 0}
+      colorValue: {r: 1, g: 0.7302845, b: 0, a: 1}
+    legacyOutputRenderTexture: {fileID: 0}
+  - nodeId: d7000edb9df34010b6272f35d7b70753
+    displayName: Texture
+    nodeKind: 2
+    shader: {fileID: 0}
+    parameterId: ccfbfb9fe5af43efac77f311e4ed71fa
+    previewExpanded: 1
+    position: {x: 182, y: 308}
     inputPorts: []
     outputPorts:
     - portId: out_rgba
@@ -83,12 +76,48 @@ MonoBehaviour:
       direction: 1
       optional: 0
     parameters: []
+    legacyOutputRenderTexture: {fileID: 0}
+  - nodeId: da55cb250e9d4aafaa9a94e51930c596
+    displayName: Color
+    nodeKind: 2
+    shader: {fileID: 0}
+    parameterId: b7fc906c488f41af818eb718ebb9b1c0
+    previewExpanded: 0
+    position: {x: 182, y: 182}
+    inputPorts: []
+    outputPorts:
+    - portId: out_value
+      displayName: Value
+      portType: 3
+      direction: 1
+      optional: 0
+    parameters: []
+    legacyOutputRenderTexture: {fileID: 0}
   edges:
-  - outputNodeId: ac540a5e7015490e9df1fc21fd0374cb
+  - outputNodeId: 8eb0be631dfa44789d93810a0bb51ef5
     outputPortId: out_rgba
-    inputNodeId: 5b328e55070b499a8a8a14fc6bc0632c
+    inputNodeId: 82f483a619a3444e951a7c6e4c4cc0a6
     inputPortId: in_rgba
-  - outputNodeId: d2445f3cd9214f818fc4e6661c2ce7bc
+  - outputNodeId: d7000edb9df34010b6272f35d7b70753
     outputPortId: out_rgba
-    inputNodeId: ac540a5e7015490e9df1fc21fd0374cb
+    inputNodeId: 8eb0be631dfa44789d93810a0bb51ef5
     inputPortId: _Tex
+  - outputNodeId: da55cb250e9d4aafaa9a94e51930c596
+    outputPortId: out_value
+    inputNodeId: 8eb0be631dfa44789d93810a0bb51ef5
+    inputPortId: _TintColor
+  parameters:
+  - parameterId: ccfbfb9fe5af43efac77f311e4ed71fa
+    parameterName: Texture
+    parameterType: 0
+    textureValue: {fileID: 8400000, guid: 14962dfcad71d504b84dfa054ee4d1af, type: 2}
+    floatValue: 0
+    vectorValue: {x: 0, y: 0, z: 0, w: 0}
+    colorValue: {r: 1, g: 1, b: 1, a: 1}
+  - parameterId: b7fc906c488f41af818eb718ebb9b1c0
+    parameterName: Color
+    parameterType: 3
+    textureValue: {fileID: 0}
+    floatValue: 0
+    vectorValue: {x: 0, y: 0, z: 0, w: 0}
+    colorValue: {r: 0.6792453, g: 0.24029905, b: 0.24029905, a: 1}

@@ -11,26 +11,20 @@ namespace sugi.cc.ImageProcessTool
         [SerializeField] private string graphVersion = "0.1.0";
         [SerializeField] private List<ImageProcessNodeData> nodes = new();
         [SerializeField] private List<ImageProcessEdgeData> edges = new();
+        [SerializeField] private List<ImageProcessGraphParameter> parameters = new();
 
         public string GraphVersion => graphVersion;
         public IReadOnlyList<ImageProcessNodeData> Nodes => nodes;
         public IReadOnlyList<ImageProcessEdgeData> Edges => edges;
+        public IReadOnlyList<ImageProcessGraphParameter> Parameters => parameters;
 
         public ImageProcessNodeData AddNode(ImageProcessNodeKind kind, string displayName)
         {
             var node = new ImageProcessNodeData();
             node.Initialize(kind, displayName);
+            node.displayName = MakeUniqueNodeDisplayName(kind, node.displayName);
 
-            if (kind == ImageProcessNodeKind.Source)
-            {
-                node.SetPorts(
-                    new List<ImageProcessPortDefinition>(),
-                    new List<ImageProcessPortDefinition>
-                    {
-                        new("out_rgba", "RGBA", ImageProcessPortType.Texture, ImageProcessPortDirection.Output, false)
-                    });
-            }
-            else if (kind == ImageProcessNodeKind.Output)
+            if (kind == ImageProcessNodeKind.Output)
             {
                 node.SetPorts(
                     new List<ImageProcessPortDefinition>
@@ -38,6 +32,11 @@ namespace sugi.cc.ImageProcessTool
                         new("in_rgba", "RGBA", ImageProcessPortType.Texture, ImageProcessPortDirection.Input, false)
                     },
                     new List<ImageProcessPortDefinition>());
+            }
+            else if (kind == ImageProcessNodeKind.Parameter)
+            {
+                node.parameterId = parameters.FirstOrDefault()?.parameterId;
+                SyncParameterNode(node);
             }
 
             nodes.Add(node);
@@ -136,6 +135,185 @@ namespace sugi.cc.ImageProcessTool
                 node?.EnsureNodeId();
             }
         }
+
+        public ImageProcessGraphParameter AddParameter(string parameterName, ImageProcessPortType parameterType)
+        {
+            var parameter = new ImageProcessGraphParameter(Guid.NewGuid().ToString("N"), MakeUniqueParameterName(parameterName), parameterType);
+            parameters.Add(parameter);
+            SyncParameterNodes();
+            return parameter;
+        }
+
+        public void RemoveParameter(string parameterId)
+        {
+            if (string.IsNullOrWhiteSpace(parameterId))
+            {
+                return;
+            }
+
+            parameters.RemoveAll(x => x.parameterId == parameterId);
+            foreach (var node in nodes)
+            {
+                if (node == null || node.nodeKind != ImageProcessNodeKind.Parameter || node.parameterId != parameterId)
+                {
+                    continue;
+                }
+
+                node.parameterId = string.Empty;
+                node.displayName = "Parameter";
+                node.SetPorts(new List<ImageProcessPortDefinition>(), new List<ImageProcessPortDefinition>());
+            }
+
+            RemoveInvalidEdges();
+        }
+
+        public ImageProcessGraphParameter FindParameter(string parameterId)
+        {
+            return parameters.FirstOrDefault(x => x.parameterId == parameterId);
+        }
+
+        public ImageProcessGraphParameter FindParameterByName(string parameterName)
+        {
+            return parameters.FirstOrDefault(x => x.parameterName == parameterName);
+        }
+
+        public string MakeUniqueParameterName(string parameterName, string excludeParameterId = null)
+        {
+            var baseName = string.IsNullOrWhiteSpace(parameterName) ? "Parameter" : parameterName.Trim();
+            var usedNames = new HashSet<string>(
+                parameters
+                    .Where(x => x != null && x.parameterId != excludeParameterId && !string.IsNullOrWhiteSpace(x.parameterName))
+                    .Select(x => x.parameterName));
+
+            if (!usedNames.Contains(baseName))
+            {
+                return baseName;
+            }
+
+            var suffix = 2;
+            while (true)
+            {
+                var candidate = $"{baseName} {suffix}";
+                if (!usedNames.Contains(candidate))
+                {
+                    return candidate;
+                }
+
+                suffix++;
+            }
+        }
+
+        public bool HasDuplicateParameterNames(out string error)
+        {
+            var duplicate = parameters
+                .Where(x => x != null && !string.IsNullOrWhiteSpace(x.parameterName))
+                .GroupBy(x => x.parameterName)
+                .FirstOrDefault(g => g.Count() > 1);
+
+            if (duplicate != null)
+            {
+                error = $"Duplicate parameter name detected: {duplicate.Key}";
+                return true;
+            }
+
+            error = string.Empty;
+            return false;
+        }
+
+        public void SyncParameterNodes()
+        {
+            foreach (var node in nodes)
+            {
+                if (node == null || node.nodeKind != ImageProcessNodeKind.Parameter)
+                {
+                    continue;
+                }
+
+                SyncParameterNode(node);
+            }
+        }
+
+        public void SyncParameterNode(ImageProcessNodeData node)
+        {
+            if (node == null || node.nodeKind != ImageProcessNodeKind.Parameter)
+            {
+                return;
+            }
+
+            var parameter = FindParameter(node.parameterId);
+            if (parameter == null)
+            {
+                node.displayName = "Parameter";
+                node.SetPorts(new List<ImageProcessPortDefinition>(), new List<ImageProcessPortDefinition>());
+                return;
+            }
+
+            node.displayName = parameter.parameterName;
+            var outputPortId = parameter.parameterType == ImageProcessPortType.Texture ? "out_rgba" : "out_value";
+            var displayName = parameter.parameterType == ImageProcessPortType.Texture ? "RGBA" : "Value";
+            node.SetPorts(
+                new List<ImageProcessPortDefinition>(),
+                new List<ImageProcessPortDefinition>
+                {
+                    new(outputPortId, displayName, parameter.parameterType, ImageProcessPortDirection.Output, false)
+                });
+        }
+
+        public string MakeUniqueNodeDisplayName(ImageProcessNodeKind kind, string displayName, string excludeNodeId = null)
+        {
+            var baseName = string.IsNullOrWhiteSpace(displayName) ? kind.ToString() : displayName.Trim();
+            if (!RequiresUniqueDisplayName(kind))
+            {
+                return baseName;
+            }
+
+            var usedNames = new HashSet<string>(
+                nodes
+                    .Where(n => n != null && n.nodeKind == kind && n.nodeId != excludeNodeId)
+                    .Select(n => n.displayName)
+                    .Where(n => !string.IsNullOrWhiteSpace(n)));
+
+            if (!usedNames.Contains(baseName))
+            {
+                return baseName;
+            }
+
+            var suffix = 2;
+            while (true)
+            {
+                var candidate = $"{baseName} {suffix}";
+                if (!usedNames.Contains(candidate))
+                {
+                    return candidate;
+                }
+
+                suffix++;
+            }
+        }
+
+        public bool HasDuplicateUniqueNodeNames(out string error)
+        {
+            foreach (var kind in new[] { ImageProcessNodeKind.Output })
+            {
+                var duplicate = nodes
+                    .Where(n => n != null && n.nodeKind == kind && !string.IsNullOrWhiteSpace(n.displayName))
+                    .GroupBy(n => n.displayName)
+                    .FirstOrDefault(g => g.Count() > 1);
+
+                if (duplicate != null)
+                {
+                    error = $"Duplicate {kind} node name detected: {duplicate.Key}";
+                    return true;
+                }
+            }
+
+            error = string.Empty;
+            return false;
+        }
+
+        private static bool RequiresUniqueDisplayName(ImageProcessNodeKind kind)
+        {
+            return kind == ImageProcessNodeKind.Output;
+        }
     }
 }
-

@@ -12,9 +12,10 @@ namespace sugi.cc.ImageProcessTool.Editor
     internal sealed class ImageProcessNodeView : Node
     {
         private const float DefaultNodeWidth = 280f;
-        private readonly Action onNodeDataChanged;
+        private readonly Action<ImageProcessNodeData> onNodeDataChanged;
         private readonly Action onNodeViewStateChanged;
         private readonly Action<ImageProcessNodeData> onShaderSyncRequested;
+        private readonly Func<IReadOnlyList<ImageProcessGraphParameter>> parameterProvider;
 
         public ImageProcessNodeData NodeData { get; }
 
@@ -26,14 +27,16 @@ namespace sugi.cc.ImageProcessTool.Editor
 
         public ImageProcessNodeView(
             ImageProcessNodeData nodeData,
-            Action onNodeDataChanged,
+            Action<ImageProcessNodeData> onNodeDataChanged,
             Action onNodeViewStateChanged,
-            Action<ImageProcessNodeData> onShaderSyncRequested)
+            Action<ImageProcessNodeData> onShaderSyncRequested,
+            Func<IReadOnlyList<ImageProcessGraphParameter>> parameterProvider)
         {
             NodeData = nodeData;
             this.onNodeDataChanged = onNodeDataChanged;
             this.onNodeViewStateChanged = onNodeViewStateChanged;
             this.onShaderSyncRequested = onShaderSyncRequested;
+            this.parameterProvider = parameterProvider;
 
             title = BuildTitle(nodeData);
             viewDataKey = nodeData.nodeId;
@@ -116,34 +119,22 @@ namespace sugi.cc.ImageProcessTool.Editor
         {
             extensionContainer.Clear();
 
-            var nameField = new TextField("Name")
+            if (NodeData.nodeKind != ImageProcessNodeKind.Parameter)
             {
-                value = NodeData.displayName
-            };
-            nameField.RegisterValueChangedCallback(evt =>
-            {
-                NodeData.displayName = evt.newValue;
-                title = BuildTitle(NodeData);
-                onNodeDataChanged?.Invoke();
-            });
-            extensionContainer.Add(nameField);
-
-            if (NodeData.nodeKind == ImageProcessNodeKind.Source)
-            {
-                var sourceField = new ObjectField("Texture")
+                var nameField = new TextField("Name")
                 {
-                    objectType = typeof(Texture),
-                    allowSceneObjects = false,
-                    value = NodeData.sourceTexture
+                    value = NodeData.displayName
                 };
-                sourceField.RegisterValueChangedCallback(evt =>
+                nameField.RegisterValueChangedCallback(evt =>
                 {
-                    NodeData.sourceTexture = evt.newValue as Texture;
-                    onNodeDataChanged?.Invoke();
+                    NodeData.displayName = evt.newValue;
+                    title = BuildTitle(NodeData);
+                    onNodeDataChanged?.Invoke(NodeData);
                 });
-                extensionContainer.Add(sourceField);
+                extensionContainer.Add(nameField);
             }
-            else if (NodeData.nodeKind == ImageProcessNodeKind.ShaderOperator)
+
+            if (NodeData.nodeKind == ImageProcessNodeKind.ShaderOperator)
             {
                 var shaderField = new ObjectField("Shader")
                 {
@@ -154,7 +145,7 @@ namespace sugi.cc.ImageProcessTool.Editor
                 shaderField.RegisterValueChangedCallback(evt =>
                 {
                     NodeData.shader = evt.newValue as Shader;
-                    onNodeDataChanged?.Invoke();
+                    onNodeDataChanged?.Invoke(NodeData);
                 });
                 extensionContainer.Add(shaderField);
 
@@ -169,34 +160,133 @@ namespace sugi.cc.ImageProcessTool.Editor
                     AddParameterField(parameter);
                 }
             }
-            else if (NodeData.nodeKind == ImageProcessNodeKind.Output)
+            else if (NodeData.nodeKind == ImageProcessNodeKind.Parameter)
             {
-                var targetField = new ObjectField("Target RT")
-                {
-                    objectType = typeof(RenderTexture),
-                    allowSceneObjects = false,
-                    value = NodeData.outputRenderTexture
-                };
-                targetField.RegisterValueChangedCallback(evt =>
-                {
-                    NodeData.outputRenderTexture = evt.newValue as RenderTexture;
-                    onNodeDataChanged?.Invoke();
-                });
-                extensionContainer.Add(targetField);
+                BuildParameterNodeFields();
             }
-
             BuildPreviewSection();
             RefreshExpandedState();
         }
 
+        private void BuildParameterNodeFields()
+        {
+            var parameters = parameterProvider?.Invoke();
+            var options = new List<string>();
+            var selectedIndex = -1;
+            ImageProcessGraphParameter selectedParameter = null;
+
+            if (parameters != null)
+            {
+                for (var i = 0; i < parameters.Count; i++)
+                {
+                    var parameter = parameters[i];
+                    options.Add(parameter.parameterName);
+                    if (parameter.parameterId == NodeData.parameterId)
+                    {
+                        selectedIndex = i;
+                    }
+                }
+            }
+
+            if (options.Count == 0)
+            {
+                extensionContainer.Add(new HelpBox("GraphAsset に Parameter がありません。", HelpBoxMessageType.Info));
+                return;
+            }
+
+            if (selectedIndex < 0)
+            {
+                selectedIndex = 0;
+            }
+
+            selectedParameter = parameters[selectedIndex];
+            var popup = new PopupField<string>("Parameter", options, selectedIndex);
+            popup.RegisterValueChangedCallback(evt =>
+            {
+                var index = options.IndexOf(evt.newValue);
+                if (index < 0)
+                {
+                    return;
+                }
+
+                NodeData.parameterId = parameters[index].parameterId;
+                NodeData.displayName = parameters[index].parameterName;
+                title = BuildTitle(NodeData);
+                onNodeDataChanged?.Invoke(NodeData);
+            });
+            extensionContainer.Add(popup);
+
+            if (selectedParameter == null)
+            {
+                return;
+            }
+
+            switch (selectedParameter.parameterType)
+            {
+                case ImageProcessPortType.Texture:
+                    var textureField = new ObjectField("Default Value")
+                    {
+                        objectType = typeof(Texture),
+                        allowSceneObjects = false,
+                        value = selectedParameter.textureValue
+                    };
+                    textureField.RegisterValueChangedCallback(evt =>
+                    {
+                        selectedParameter.textureValue = evt.newValue as Texture;
+                        onNodeDataChanged?.Invoke(NodeData);
+                    });
+                    extensionContainer.Add(textureField);
+                    break;
+
+                case ImageProcessPortType.Float:
+                    var floatField = new FloatField("Default Value")
+                    {
+                        value = selectedParameter.floatValue
+                    };
+                    floatField.RegisterValueChangedCallback(evt =>
+                    {
+                        selectedParameter.floatValue = evt.newValue;
+                        onNodeDataChanged?.Invoke(NodeData);
+                    });
+                    extensionContainer.Add(floatField);
+                    break;
+
+                case ImageProcessPortType.Vector4:
+                    var vectorField = new Vector4Field("Default Value")
+                    {
+                        value = selectedParameter.vectorValue
+                    };
+                    vectorField.RegisterValueChangedCallback(evt =>
+                    {
+                        selectedParameter.vectorValue = evt.newValue;
+                        onNodeDataChanged?.Invoke(NodeData);
+                    });
+                    extensionContainer.Add(vectorField);
+                    break;
+
+                case ImageProcessPortType.Color:
+                    var colorField = new ColorField("Default Value")
+                    {
+                        value = selectedParameter.colorValue
+                    };
+                    colorField.hdr = true;
+                    colorField.RegisterValueChangedCallback(evt =>
+                    {
+                        selectedParameter.colorValue = evt.newValue;
+                        onNodeDataChanged?.Invoke(NodeData);
+                    });
+                    extensionContainer.Add(colorField);
+                    break;
+            }
+        }
+
         private void BuildPreviewSection()
         {
-            var hasRgbaOutput = NodeData.outputPorts.Exists(p =>
-                p.portId == "out_rgba" &&
+            var hasTextureOutput = NodeData.outputPorts.Exists(p =>
                 p.portType == ImageProcessPortType.Texture &&
                 p.direction == ImageProcessPortDirection.Output);
 
-            if (!hasRgbaOutput)
+            if (!hasTextureOutput)
             {
                 previewFoldout = null;
                 previewImage = null;
@@ -276,7 +366,7 @@ namespace sugi.cc.ImageProcessTool.Editor
                     floatField.RegisterValueChangedCallback(evt =>
                     {
                         parameter.floatValue = evt.newValue;
-                        onNodeDataChanged?.Invoke();
+                        onNodeDataChanged?.Invoke(NodeData);
                     });
                     extensionContainer.Add(floatField);
                     break;
@@ -286,17 +376,18 @@ namespace sugi.cc.ImageProcessTool.Editor
                     vectorField.RegisterValueChangedCallback(evt =>
                     {
                         parameter.vectorValue = evt.newValue;
-                        onNodeDataChanged?.Invoke();
+                        onNodeDataChanged?.Invoke(NodeData);
                     });
                     extensionContainer.Add(vectorField);
                     break;
 
                 case ImageProcessPortType.Color:
                     var colorField = new ColorField(parameter.parameterName) { value = parameter.colorValue };
+                    colorField.hdr = true;
                     colorField.RegisterValueChangedCallback(evt =>
                     {
                         parameter.colorValue = evt.newValue;
-                        onNodeDataChanged?.Invoke();
+                        onNodeDataChanged?.Invoke(NodeData);
                     });
                     extensionContainer.Add(colorField);
                     break;

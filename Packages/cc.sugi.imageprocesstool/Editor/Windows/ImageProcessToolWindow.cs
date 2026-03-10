@@ -79,13 +79,22 @@ namespace sugi.cc.ImageProcessTool.Editor
             toolbar.Add(graphObjectField);
 
             toolbar.Add(new ToolbarButton(CreateGraphAsset) { text = "New" });
-            toolbar.Add(new ToolbarButton(() => AddNode(ImageProcessNodeKind.Source, "Source")) { text = "Add Source" });
+            var parameterMenu = new ToolbarMenu
+            {
+                text = "Add Parameter"
+            };
+            toolbar.Add(parameterMenu);
             toolbar.Add(new ToolbarButton(() => AddNode(ImageProcessNodeKind.ShaderOperator, "Shader")) { text = "Add Shader" });
             toolbar.Add(new ToolbarButton(() => AddNode(ImageProcessNodeKind.Output, "Output")) { text = "Add Output" });
             toolbar.Add(new ToolbarButton(SyncShaderNodes) { text = "Sync Shader Ports" });
             toolbar.Add(new ToolbarButton(ValidateGraph) { text = "Validate" });
             toolbar.Add(new ToolbarButton(SaveGraphAsset) { text = "Save" });
             toolbar.Add(new ToolbarButton(() => graphView?.Rebuild()) { text = "Reload View" });
+
+            parameterMenu.menu.AppendAction("Texture", _ => AddParameterNode(ImageProcessPortType.Texture));
+            parameterMenu.menu.AppendAction("Float", _ => AddParameterNode(ImageProcessPortType.Float));
+            parameterMenu.menu.AppendAction("Vector4", _ => AddParameterNode(ImageProcessPortType.Vector4));
+            parameterMenu.menu.AppendAction("Color", _ => AddParameterNode(ImageProcessPortType.Color));
 
             return toolbar;
         }
@@ -138,6 +147,17 @@ namespace sugi.cc.ImageProcessTool.Editor
 
             graphView.AddNode(kind, defaultName);
             SetStatus($"Added {kind} node.", HelpBoxMessageType.Info);
+        }
+
+        private void AddParameterNode(ImageProcessPortType parameterType)
+        {
+            if (!EnsureGraphAssigned())
+            {
+                return;
+            }
+
+            graphView.AddParameterNode(parameterType, Vector2.zero);
+            SetStatus($"Added {parameterType} parameter node.", HelpBoxMessageType.Info);
         }
 
         private void SyncShaderNodes()
@@ -261,7 +281,7 @@ namespace sugi.cc.ImageProcessTool.Editor
         [OnOpenAsset]
         private static bool OnOpenAsset(int instanceId, int line)
         {
-            if (EditorUtility.InstanceIDToObject(instanceId) is not ImageProcessGraphAsset asset)
+            if (Selection.activeObject is not ImageProcessGraphAsset asset)
             {
                 return false;
             }

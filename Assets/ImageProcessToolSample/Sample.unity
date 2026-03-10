@@ -569,10 +569,30 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: sugi.cc.ImageProcessTool.Runtime::sugi.cc.ImageProcessTool.ImageProcessGraphRunner
   graph: {fileID: 11400000, guid: 50c6a7f3dd9d28f4ca35b7af33c5c3e5, type: 2}
-  destination: {fileID: 8400000, guid: b4caeec5842e0d442885b3e0890a929c, type: 2}
+  outputDestinations:
+  - outputNodeName: Output
+    destination: {fileID: 8400000, guid: b4caeec5842e0d442885b3e0890a929c, type: 2}
+    previewExpanded: 0
+  parameterOverrideBindings:
+  - parameterId: ccfbfb9fe5af43efac77f311e4ed71fa
+    parameterName: Texture
+    parameterType: 0
+    overrideEnabled: 1
+    textureValue: {fileID: 2800000, guid: ba27c45cf0c04ad4cab7ca2db35b686b, type: 3}
+    floatValue: 0
+    vectorValue: {x: 0, y: 0, z: 0, w: 0}
+    colorValue: {r: 1, g: 1, b: 1, a: 1}
+  - parameterId: b7fc906c488f41af818eb718ebb9b1c0
+    parameterName: Color
+    parameterType: 3
+    overrideEnabled: 0
+    textureValue: {fileID: 0}
+    floatValue: 0
+    vectorValue: {x: 0, y: 0, z: 0, w: 0}
+    colorValue: {r: 1, g: 1, b: 1, a: 1}
   updateTiming: 0
   executeOnEnable: 1
-  runInEditMode: 1
+  executeInEditMode: 1
   logErrors: 1
 --- !u!1660057539 &9223372036854775807
 SceneRoots:

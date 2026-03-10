@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace sugi.cc.ImageProcessTool
 {
@@ -11,13 +12,14 @@ namespace sugi.cc.ImageProcessTool
         public string displayName;
         public ImageProcessNodeKind nodeKind;
         public Shader shader;
-        public Texture sourceTexture;
-        public RenderTexture outputRenderTexture;
+        public string parameterId;
         public bool previewExpanded;
         public Vector2 position;
         public List<ImageProcessPortDefinition> inputPorts = new();
         public List<ImageProcessPortDefinition> outputPorts = new();
         public List<ImageProcessNodeParameter> parameters = new();
+        [FormerlySerializedAs("outputRenderTexture")]
+        [SerializeField, HideInInspector] private RenderTexture legacyOutputRenderTexture;
 
         public ImageProcessNodeData()
         {
@@ -51,4 +53,3 @@ namespace sugi.cc.ImageProcessTool
         }
     }
 }
-

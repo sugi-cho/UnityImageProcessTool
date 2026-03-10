@@ -30,6 +30,16 @@ namespace sugi.cc.ImageProcessTool
                 return false;
             }
 
+            if (graph.HasDuplicateUniqueNodeNames(out error))
+            {
+                return false;
+            }
+
+            if (graph.HasDuplicateParameterNames(out error))
+            {
+                return false;
+            }
+
             var byId = nodes.ToDictionary(n => n.nodeId, n => n);
 
             var inputConnectionCount = new Dictionary<string, int>();
@@ -87,14 +97,6 @@ namespace sugi.cc.ImageProcessTool
             {
                 switch (node.nodeKind)
                 {
-                    case ImageProcessNodeKind.Source:
-                        if (node.sourceTexture == null)
-                        {
-                            error = $"Source node has no texture: {node.displayName}";
-                            return false;
-                        }
-                        break;
-
                     case ImageProcessNodeKind.ShaderOperator:
                         if (node.shader == null)
                         {
@@ -107,6 +109,21 @@ namespace sugi.cc.ImageProcessTool
                         if (!node.inputPorts.Any(p => p.portId == "in_rgba"))
                         {
                             error = $"Output node has no in_rgba port: {node.displayName}";
+                            return false;
+                        }
+                        break;
+
+                    case ImageProcessNodeKind.Parameter:
+                        var parameter = graph.FindParameter(node.parameterId);
+                        if (parameter == null)
+                        {
+                            error = $"Parameter node has invalid parameter reference: {node.displayName}";
+                            return false;
+                        }
+
+                        if (node.outputPorts.Count != 1 || node.outputPorts[0].portType != parameter.parameterType)
+                        {
+                            error = $"Parameter node port mismatch: {node.displayName}";
                             return false;
                         }
                         break;
