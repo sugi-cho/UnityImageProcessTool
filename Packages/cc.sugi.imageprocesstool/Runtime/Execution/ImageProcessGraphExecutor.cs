@@ -289,7 +289,13 @@ namespace sugi.cc.ImageProcessTool
                 var width = firstInputTexture != null ? firstInputTexture.width : 512;
                 var height = firstInputTexture != null ? firstInputTexture.height : 512;
                 var texture = CreateOutputTexture(width, height);
-                Graphics.Blit(Texture2D.blackTexture, texture, material);
+                Texture blitSource = firstInputTexture != null ? firstInputTexture : Texture2D.blackTexture;
+                if (firstInputTexture != null && material.HasProperty("_MainTex"))
+                {
+                    material.SetTexture("_MainTex", firstInputTexture);
+                }
+
+                Graphics.Blit(blitSource, texture, material);
                 output = ImageProcessValue.FromTexture(texture);
             }
             finally

@@ -469,13 +469,71 @@ namespace sugi.cc.ImageProcessTool.Editor
             switch (parameter.parameterType)
             {
                 case ImageProcessPortType.Float:
-                    var floatField = new FloatField(parameter.parameterName) { value = parameter.floatValue };
-                    floatField.RegisterValueChangedCallback(evt =>
+                    if (parameter.useRange)
                     {
-                        parameter.floatValue = evt.newValue;
-                        onNodeDataChanged?.Invoke(NodeData);
-                    });
-                    extensionContainer.Add(floatField);
+                        var lowValue = Mathf.Min(parameter.rangeMin, parameter.rangeMax);
+                        var highValue = Mathf.Max(parameter.rangeMin, parameter.rangeMax);
+                        parameter.floatValue = Mathf.Clamp(parameter.floatValue, lowValue, highValue);
+
+                        var rangeContainer = new VisualElement();
+                        rangeContainer.style.marginBottom = 4f;
+
+                        var label = new Label(parameter.parameterName);
+                        label.style.unityFontStyleAndWeight = FontStyle.Bold;
+                        label.style.marginBottom = 2f;
+                        rangeContainer.Add(label);
+
+                        var inputRow = new VisualElement();
+                        inputRow.style.flexDirection = FlexDirection.Row;
+                        inputRow.style.alignItems = Align.Center;
+
+                        var slider = new Slider(lowValue, highValue)
+                        {
+                            value = parameter.floatValue
+                        };
+                        slider.style.flexGrow = 1f;
+                        slider.style.marginRight = 6f;
+
+                        var floatField = new FloatField
+                        {
+                            value = parameter.floatValue
+                        };
+                        floatField.style.width = 72f;
+
+                        void ApplyRangeValue(float value, bool updateSlider, bool updateFloatField)
+                        {
+                            parameter.floatValue = Mathf.Clamp(value, lowValue, highValue);
+                            if (updateSlider && !Mathf.Approximately(slider.value, parameter.floatValue))
+                            {
+                                slider.SetValueWithoutNotify(parameter.floatValue);
+                            }
+
+                            if (updateFloatField && !Mathf.Approximately(floatField.value, parameter.floatValue))
+                            {
+                                floatField.SetValueWithoutNotify(parameter.floatValue);
+                            }
+
+                            onNodeDataChanged?.Invoke(NodeData);
+                        }
+
+                        slider.RegisterValueChangedCallback(evt => ApplyRangeValue(evt.newValue, false, true));
+                        floatField.RegisterValueChangedCallback(evt => ApplyRangeValue(evt.newValue, true, false));
+
+                        inputRow.Add(slider);
+                        inputRow.Add(floatField);
+                        rangeContainer.Add(inputRow);
+                        extensionContainer.Add(rangeContainer);
+                    }
+                    else
+                    {
+                        var floatField = new FloatField(parameter.parameterName) { value = parameter.floatValue };
+                        floatField.RegisterValueChangedCallback(evt =>
+                        {
+                            parameter.floatValue = evt.newValue;
+                            onNodeDataChanged?.Invoke(NodeData);
+                        });
+                        extensionContainer.Add(floatField);
+                    }
                     break;
 
                 case ImageProcessPortType.Vector4:

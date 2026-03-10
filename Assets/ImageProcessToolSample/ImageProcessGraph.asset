@@ -25,7 +25,7 @@ MonoBehaviour:
     blurRadius: 1.5
     blurDownsample: 0
     previewExpanded: 0
-    position: {x: 1224, y: 208}
+    position: {x: 1198, y: 175}
     inputPorts:
     - portId: in_rgba
       displayName: RGBA
@@ -34,42 +34,6 @@ MonoBehaviour:
       optional: 0
     outputPorts: []
     parameters: []
-    legacyOutputRenderTexture: {fileID: 0}
-  - nodeId: 8eb0be631dfa44789d93810a0bb51ef5
-    displayName: Shader Graphs/Invert
-    nodeKind: 0
-    shader: {fileID: -6465566751694194690, guid: de1fda702f86c7943b1d77218df6f94b, type: 3}
-    parameterId: 
-    iterativeFilterKind: 0
-    blurMode: 1
-    blurIterations: 1
-    blurRadius: 1.5
-    blurDownsample: 0
-    previewExpanded: 1
-    position: {x: 569, y: 246}
-    inputPorts:
-    - portId: _Tex
-      displayName: Tex
-      portType: 0
-      direction: 0
-      optional: 0
-    - portId: _TintColor
-      displayName: TintColor
-      portType: 3
-      direction: 0
-      optional: 1
-    outputPorts:
-    - portId: out_rgba
-      displayName: RGBA
-      portType: 0
-      direction: 1
-      optional: 0
-    parameters:
-    - parameterName: _TintColor
-      parameterType: 3
-      floatValue: 0
-      vectorValue: {x: 0, y: 0, z: 0, w: 0}
-      colorValue: {r: 1, g: 0.7302845, b: 0, a: 1}
     legacyOutputRenderTexture: {fileID: 0}
   - nodeId: d7000edb9df34010b6272f35d7b70753
     displayName: Texture
@@ -81,56 +45,9 @@ MonoBehaviour:
     blurIterations: 1
     blurRadius: 1.5
     blurDownsample: 0
-    previewExpanded: 0
-    position: {x: 168, y: 110}
+    previewExpanded: 1
+    position: {x: 323, y: 175}
     inputPorts: []
-    outputPorts:
-    - portId: out_rgba
-      displayName: RGBA
-      portType: 0
-      direction: 1
-      optional: 0
-    parameters: []
-    legacyOutputRenderTexture: {fileID: 0}
-  - nodeId: da55cb250e9d4aafaa9a94e51930c596
-    displayName: Color
-    nodeKind: 2
-    shader: {fileID: 0}
-    parameterId: b7fc906c488f41af818eb718ebb9b1c0
-    iterativeFilterKind: 0
-    blurMode: 1
-    blurIterations: 1
-    blurRadius: 1.5
-    blurDownsample: 0
-    previewExpanded: 0
-    position: {x: 127, y: 346}
-    inputPorts: []
-    outputPorts:
-    - portId: out_value
-      displayName: Value
-      portType: 3
-      direction: 1
-      optional: 0
-    parameters: []
-    legacyOutputRenderTexture: {fileID: 0}
-  - nodeId: 5ce9dddb72254a81a804f3daafedb1b3
-    displayName: Iterative Filter
-    nodeKind: 4
-    shader: {fileID: 0}
-    parameterId: 
-    iterativeFilterKind: 0
-    blurMode: 2
-    blurIterations: 1
-    blurRadius: 1.5
-    blurDownsample: 1
-    previewExpanded: 0
-    position: {x: 889, y: 208}
-    inputPorts:
-    - portId: in_rgba
-      displayName: RGBA
-      portType: 0
-      direction: 0
-      optional: 0
     outputPorts:
     - portId: out_rgba
       displayName: RGBA
@@ -233,23 +150,59 @@ MonoBehaviour:
       optional: 0
     parameters: []
     legacyOutputRenderTexture: {fileID: 0}
+  - nodeId: 3b99b488e2cb46189d1d1ed4f91cbc35
+    displayName: sugi.cc/ImageProcess/BrightnessContrast
+    nodeKind: 0
+    shader: {fileID: 4800000, guid: 9e60cc4d231843f9a8687e1294917d39, type: 3}
+    parameterId: 
+    iterativeFilterKind: 0
+    blurMode: 1
+    blurIterations: 1
+    blurRadius: 1.5
+    blurDownsample: 0
+    previewExpanded: 1
+    position: {x: 786, y: 175}
+    inputPorts:
+    - portId: _MainTex
+      displayName: Texture
+      portType: 0
+      direction: 0
+      optional: 0
+    - portId: _Brightness
+      displayName: Brightness
+      portType: 1
+      direction: 0
+      optional: 1
+    - portId: _Contrast
+      displayName: Contrast
+      portType: 1
+      direction: 0
+      optional: 1
+    outputPorts:
+    - portId: out_rgba
+      displayName: RGBA
+      portType: 0
+      direction: 1
+      optional: 0
+    parameters:
+    - parameterName: _Brightness
+      parameterType: 1
+      floatValue: 0
+      useRange: 1
+      rangeMin: -1
+      rangeMax: 1
+      vectorValue: {x: 0, y: 0, z: 0, w: 0}
+      colorValue: {r: 1, g: 1, b: 1, a: 1}
+    - parameterName: _Contrast
+      parameterType: 1
+      floatValue: 2
+      useRange: 1
+      rangeMin: -2
+      rangeMax: 2
+      vectorValue: {x: 0, y: 0, z: 0, w: 0}
+      colorValue: {r: 1, g: 1, b: 1, a: 1}
+    legacyOutputRenderTexture: {fileID: 0}
   edges:
-  - outputNodeId: d7000edb9df34010b6272f35d7b70753
-    outputPortId: out_rgba
-    inputNodeId: 8eb0be631dfa44789d93810a0bb51ef5
-    inputPortId: _Tex
-  - outputNodeId: da55cb250e9d4aafaa9a94e51930c596
-    outputPortId: out_value
-    inputNodeId: 8eb0be631dfa44789d93810a0bb51ef5
-    inputPortId: _TintColor
-  - outputNodeId: 8eb0be631dfa44789d93810a0bb51ef5
-    outputPortId: out_rgba
-    inputNodeId: 5ce9dddb72254a81a804f3daafedb1b3
-    inputPortId: in_rgba
-  - outputNodeId: 5ce9dddb72254a81a804f3daafedb1b3
-    outputPortId: out_rgba
-    inputNodeId: 82f483a619a3444e951a7c6e4c4cc0a6
-    inputPortId: in_rgba
   - outputNodeId: adc0e8bbd0664575821f71952edc9ad8
     outputPortId: out_rgba
     inputNodeId: 7c61241253164aa5ae1a41006f87cbe0
@@ -262,32 +215,19 @@ MonoBehaviour:
     outputPortId: out_rgba
     inputNodeId: c0009b01b57545e58d3c4507baa88e3f
     inputPortId: in_rgba
+  - outputNodeId: d7000edb9df34010b6272f35d7b70753
+    outputPortId: out_rgba
+    inputNodeId: 3b99b488e2cb46189d1d1ed4f91cbc35
+    inputPortId: _MainTex
+  - outputNodeId: 3b99b488e2cb46189d1d1ed4f91cbc35
+    outputPortId: out_rgba
+    inputNodeId: 82f483a619a3444e951a7c6e4c4cc0a6
+    inputPortId: in_rgba
   parameters:
   - parameterId: ccfbfb9fe5af43efac77f311e4ed71fa
     parameterName: Texture
     parameterType: 0
     textureValue: {fileID: 8400000, guid: 14962dfcad71d504b84dfa054ee4d1af, type: 2}
-    floatValue: 0
-    vectorValue: {x: 0, y: 0, z: 0, w: 0}
-    colorValue: {r: 1, g: 1, b: 1, a: 1}
-  - parameterId: b7fc906c488f41af818eb718ebb9b1c0
-    parameterName: Color
-    parameterType: 3
-    textureValue: {fileID: 0}
-    floatValue: 0
-    vectorValue: {x: 0, y: 0, z: 0, w: 0}
-    colorValue: {r: 0.32197124, g: 0.6784314, b: 0.23921566, a: 1}
-  - parameterId: e1e08b8429da4586a94fcac797bc240a
-    parameterName: Color 2
-    parameterType: 3
-    textureValue: {fileID: 0}
-    floatValue: 0
-    vectorValue: {x: 0, y: 0, z: 0, w: 0}
-    colorValue: {r: 0.6415094, g: 0.5585583, b: 0.16037735, a: 1}
-  - parameterId: ca23b286134f4026aced2acf36be59a1
-    parameterName: Vector
-    parameterType: 2
-    textureValue: {fileID: 0}
     floatValue: 0
     vectorValue: {x: 0, y: 0, z: 0, w: 0}
     colorValue: {r: 1, g: 1, b: 1, a: 1}

@@ -9,6 +9,9 @@ namespace sugi.cc.ImageProcessTool
         public string parameterName;
         public ImageProcessPortType parameterType;
         public float floatValue;
+        public bool useRange;
+        public float rangeMin;
+        public float rangeMax = 1f;
         public Vector4 vectorValue;
         public Color colorValue = Color.white;
 
@@ -19,4 +22,3 @@ namespace sugi.cc.ImageProcessTool
         }
     }
 }
-

@@ -60,12 +60,23 @@ namespace sugi.cc.ImageProcessTool.Editor
                             break;
 
                         case ShaderPropertyType.Float:
-                        case ShaderPropertyType.Range:
                         case ShaderPropertyType.Int:
                             inputPorts.Add(new ImageProcessPortDefinition(propertyName, displayName, ImageProcessPortType.Float, ImageProcessPortDirection.Input, true));
                             parameters.Add(new ImageProcessNodeParameter(propertyName, ImageProcessPortType.Float)
                             {
                                 floatValue = materialScope.Instance.GetFloat(propertyName)
+                            });
+                            break;
+
+                        case ShaderPropertyType.Range:
+                            inputPorts.Add(new ImageProcessPortDefinition(propertyName, displayName, ImageProcessPortType.Float, ImageProcessPortDirection.Input, true));
+                            var limits = shader.GetPropertyRangeLimits(i);
+                            parameters.Add(new ImageProcessNodeParameter(propertyName, ImageProcessPortType.Float)
+                            {
+                                floatValue = materialScope.Instance.GetFloat(propertyName),
+                                useRange = true,
+                                rangeMin = limits.x,
+                                rangeMax = limits.y
                             });
                             break;
 
@@ -118,4 +129,3 @@ namespace sugi.cc.ImageProcessTool.Editor
         }
     }
 }
-

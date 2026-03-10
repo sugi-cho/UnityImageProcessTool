@@ -43,6 +43,26 @@ Example git URL format:
 - `Runtime/`: data and runtime-safe classes.
 - `Editor/`: editor-only UI and tooling.
 
+## Built-in Shader Nodes
+- `Runtime/Shaders/BrightnessContrast.shader`
+- `Runtime/Shaders/HueSaturationValue.shader`
+- `Runtime/Shaders/Levels.shader`
+- `Runtime/Shaders/Threshold.shader`
+- `Runtime/Shaders/Invert.shader`
+- `Runtime/Shaders/Blend.shader`
+- `Runtime/Shaders/GaussianBlur.shader`
+- `Runtime/Shaders/DirectionalBlur.shader`
+- `Runtime/Shaders/SobelEdge.shader`
+- `Runtime/Shaders/Sharpen.shader`
+- `Runtime/Shaders/UVTransform.shader`
+- `Runtime/Shaders/Distortion.shader`
+- `Runtime/Shaders/Mask.shader`
+- `Runtime/Shaders/DilateErode.shader`
+- `Runtime/Shaders/NormalFromHeight.shader`
+
+These shaders are designed for the `Shader` node and expose only syncable property types:
+`Texture`, `Float/Range`, `Vector`, and `Color`.
+
 ## Next Implementation Targets
 1. Dedicated GraphView UI for visual node editing.
 2. Inline editor UI for edge creation/removal and port-level inspection.

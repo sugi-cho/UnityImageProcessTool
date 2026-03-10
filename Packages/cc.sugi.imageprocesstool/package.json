@@ -1,7 +1,7 @@
 {
   "name": "cc.sugi.imageprocesstool",
   "version": "0.1.0",
-  "displayName": "sugi.cc Image Process Tool",
+  "displayName": "Image Process Tool",
   "description": "Node-based image processing editor extension for Unity.",
   "unity": "6000.3",
   "dependencies": {
@@ -18,5 +18,3 @@
     "name": "sugi-cho"
   }
 }
-
-
