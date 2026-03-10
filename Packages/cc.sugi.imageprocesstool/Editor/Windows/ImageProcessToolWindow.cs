@@ -1,4 +1,5 @@
 using UnityEditor;
+using UnityEditor.Callbacks;
 using UnityEditor.UIElements;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -20,6 +21,15 @@ namespace sugi.cc.ImageProcessTool.Editor
             var window = GetWindow<ImageProcessToolWindow>();
             window.titleContent = new GUIContent("Image Process Tool");
             window.minSize = new Vector2(980f, 640f);
+        }
+
+        public static void Open(ImageProcessGraphAsset asset)
+        {
+            var window = GetWindow<ImageProcessToolWindow>();
+            window.titleContent = new GUIContent("Image Process Tool");
+            window.minSize = new Vector2(980f, 640f);
+            window.SetGraphAsset(asset);
+            window.Focus();
         }
 
         public void CreateGUI()
@@ -243,6 +253,21 @@ namespace sugi.cc.ImageProcessTool.Editor
 
             statusHelpBox.text = message;
             statusHelpBox.messageType = type;
+        }
+    }
+
+    internal static class ImageProcessGraphAssetOpener
+    {
+        [OnOpenAsset]
+        private static bool OnOpenAsset(int instanceId, int line)
+        {
+            if (EditorUtility.InstanceIDToObject(instanceId) is not ImageProcessGraphAsset asset)
+            {
+                return false;
+            }
+
+            ImageProcessToolWindow.Open(asset);
+            return true;
         }
     }
 }
