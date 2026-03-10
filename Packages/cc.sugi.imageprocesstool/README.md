@@ -7,8 +7,9 @@ Unity Editor extension package for node-based image processing workflows.
 - Graph data model is implemented (`nodes`, `edges`, `port definitions`, `parameters`).
 - GraphView-based node editor is available from `Tools/sugi.cc/Image Process Tool`.
 - Shader operator node can sync ports from assigned shader properties.
+- Blur operator node supports `Box`, `Gaussian`, and `Kawase` modes with iterations/downsample controls.
 - Basic graph topology validation (cycle/missing-node checks) is available.
-- Graph execution is available for `Source -> Shader -> Output`.
+- Graph execution is available for `Source -> Shader/Blur -> Output`.
 - Graph edits auto-run the pipeline.
 - Nodes with `out_rgba` output show foldable previews.
 - Preview outputs can be saved per node as PNG/EXR/Texture2D Asset.
@@ -30,7 +31,7 @@ Example git URL format:
 ## Quick Start
 1. Open `Tools/sugi.cc/Image Process Tool`.
 2. Create a graph asset with `New`.
-3. Add nodes (`Source`, `Shader`, `Output`) in the graph canvas.
+3. Add nodes (`Source`, `Shader`, `Blur`, `Output`) in the graph canvas.
    - You can also right-click the canvas to add nodes.
 4. Assign source textures and shaders from each node inspector area.
 5. Click `Sync Shader Ports` to auto-generate input ports and default parameter values.
@@ -47,4 +48,3 @@ Example git URL format:
 2. Inline editor UI for edge creation/removal and port-level inspection.
 3. Channel split/combine node execution.
 4. Intermediate preview thumbnails in the editor.
-

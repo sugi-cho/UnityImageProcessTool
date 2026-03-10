@@ -13,6 +13,11 @@ namespace sugi.cc.ImageProcessTool
         public ImageProcessNodeKind nodeKind;
         public Shader shader;
         public string parameterId;
+        public ImageProcessIterativeFilterKind iterativeFilterKind = ImageProcessIterativeFilterKind.Blur;
+        public ImageProcessBlurMode blurMode = ImageProcessBlurMode.Gaussian;
+        public int blurIterations = 1;
+        public float blurRadius = 1.5f;
+        public int blurDownsample;
         public bool previewExpanded;
         public Vector2 position;
         public List<ImageProcessPortDefinition> inputPorts = new();

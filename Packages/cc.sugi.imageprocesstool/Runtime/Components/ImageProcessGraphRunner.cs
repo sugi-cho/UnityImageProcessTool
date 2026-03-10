@@ -213,7 +213,7 @@ namespace sugi.cc.ImageProcessTool
                 return false;
             }
 
-            if (!ImageProcessGraphExecutor.TryExecute(graph, parameterOverrides, out var result, out error))
+            if (!TryEvaluateGraph(out var result, out error))
             {
                 return false;
             }
@@ -255,6 +255,20 @@ namespace sugi.cc.ImageProcessTool
             {
                 result.Dispose();
             }
+        }
+
+        public bool TryEvaluateGraph(out ImageProcessExecutionResult result, out string error)
+        {
+            RebuildParameterOverrideMap();
+
+            if (graph == null)
+            {
+                result = null;
+                error = "ImageProcessGraphAsset is not assigned.";
+                return false;
+            }
+
+            return ImageProcessGraphExecutor.TryExecute(graph, parameterOverrides, out result, out error);
         }
 
         private void OnValidate()
@@ -318,7 +332,11 @@ namespace sugi.cc.ImageProcessTool
             if (graph == null)
             {
                 var hadBindings = previous.Length > 0;
-                outputDestinations = System.Array.Empty<OutputDestinationBinding>();
+                if (hadBindings)
+                {
+                    outputDestinations = System.Array.Empty<OutputDestinationBinding>();
+                }
+
                 return hadBindings;
             }
 
@@ -356,7 +374,6 @@ namespace sugi.cc.ImageProcessTool
                 };
             }
 
-            outputDestinations = bindings;
             var changed = previous.Length != bindings.Length;
             if (!changed)
             {
@@ -366,12 +383,18 @@ namespace sugi.cc.ImageProcessTool
                     var currentBinding = bindings[i];
                     if (previousBinding == null ||
                         previousBinding.OutputNodeName != currentBinding.OutputNodeName ||
-                        previousBinding.Destination != currentBinding.Destination)
+                        previousBinding.Destination != currentBinding.Destination ||
+                        previousBinding.PreviewExpanded != currentBinding.PreviewExpanded)
                     {
                         changed = true;
                         break;
                     }
                 }
+            }
+
+            if (changed)
+            {
+                outputDestinations = bindings;
             }
 
             return changed;
@@ -383,7 +406,11 @@ namespace sugi.cc.ImageProcessTool
             if (graph == null)
             {
                 var hadOverrides = previous.Length > 0;
-                parameterOverrideBindings = System.Array.Empty<ParameterOverrideBinding>();
+                if (hadOverrides)
+                {
+                    parameterOverrideBindings = System.Array.Empty<ParameterOverrideBinding>();
+                }
+
                 parameterOverrides.Clear();
                 return hadOverrides;
             }
@@ -417,7 +444,6 @@ namespace sugi.cc.ImageProcessTool
                 };
             }
 
-            parameterOverrideBindings = bindings;
             var changed = previous.Length != bindings.Length;
             if (!changed)
             {
@@ -439,6 +465,11 @@ namespace sugi.cc.ImageProcessTool
                         break;
                     }
                 }
+            }
+
+            if (changed)
+            {
+                parameterOverrideBindings = bindings;
             }
 
             return changed;

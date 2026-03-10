@@ -9,6 +9,8 @@ namespace sugi.cc.ImageProcessTool
         // Keep numeric values stable for asset serialization.
         ShaderOperator = 0,
         Output = 1,
-        Parameter = 2
+        Parameter = 2,
+        BlurOperator = 3,
+        IterativeFilterOperator = 4
     }
 }

@@ -378,6 +378,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1213008365}
   - component: {fileID: 1213008364}
+  - component: {fileID: 1213008366}
   m_Layer: 0
   m_Name: Directional Light
   m_TagString: Untagged
@@ -465,6 +466,35 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 50, y: -30, z: 0}
+--- !u!114 &1213008366
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1213008363}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 474bcb49853aa07438625e644c072ee6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.RenderPipelines.Universal.Runtime::UnityEngine.Rendering.Universal.UniversalAdditionalLightData
+  m_UsePipelineSettings: 1
+  m_AdditionalLightsShadowResolutionTier: 2
+  m_CustomShadowLayers: 0
+  m_LightCookieSize: {x: 1, y: 1}
+  m_LightCookieOffset: {x: 0, y: 0}
+  m_SoftShadowQuality: 0
+  m_RenderingLayersMask:
+    serializedVersion: 0
+    m_Bits: 1
+  m_ShadowRenderingLayersMask:
+    serializedVersion: 0
+    m_Bits: 1
+  m_Version: 4
+  m_LightLayerMask: 1
+  m_ShadowLayerMask: 1
+  m_RenderingLayers: 1
+  m_ShadowRenderingLayers: 1
 --- !u!1 &1697707025
 GameObject:
   m_ObjectHideFlags: 0
@@ -572,12 +602,15 @@ MonoBehaviour:
   outputDestinations:
   - outputNodeName: Output
     destination: {fileID: 8400000, guid: b4caeec5842e0d442885b3e0890a929c, type: 2}
+    previewExpanded: 1
+  - outputNodeName: Output 2
+    destination: {fileID: 0}
     previewExpanded: 0
   parameterOverrideBindings:
   - parameterId: ccfbfb9fe5af43efac77f311e4ed71fa
     parameterName: Texture
     parameterType: 0
-    overrideEnabled: 1
+    overrideEnabled: 0
     textureValue: {fileID: 2800000, guid: ba27c45cf0c04ad4cab7ca2db35b686b, type: 3}
     floatValue: 0
     vectorValue: {x: 0, y: 0, z: 0, w: 0}
@@ -587,6 +620,30 @@ MonoBehaviour:
     parameterType: 3
     overrideEnabled: 0
     textureValue: {fileID: 0}
+    floatValue: 0
+    vectorValue: {x: 0, y: 0, z: 0, w: 0}
+    colorValue: {r: 1, g: 1, b: 1, a: 1}
+  - parameterId: e1e08b8429da4586a94fcac797bc240a
+    parameterName: Color 2
+    parameterType: 3
+    overrideEnabled: 0
+    textureValue: {fileID: 0}
+    floatValue: 0
+    vectorValue: {x: 0, y: 0, z: 0, w: 0}
+    colorValue: {r: 1, g: 1, b: 1, a: 1}
+  - parameterId: ca23b286134f4026aced2acf36be59a1
+    parameterName: Vector
+    parameterType: 2
+    overrideEnabled: 0
+    textureValue: {fileID: 0}
+    floatValue: 0
+    vectorValue: {x: 0, y: 0, z: 0, w: 0}
+    colorValue: {r: 1, g: 1, b: 1, a: 1}
+  - parameterId: a9cecb0dcfa84eac9f1eb162bae7ecd5
+    parameterName: a
+    parameterType: 0
+    overrideEnabled: 0
+    textureValue: {fileID: 2800000, guid: 1e68a79f05597814fbd7ab615bc9f175, type: 3}
     floatValue: 0
     vectorValue: {x: 0, y: 0, z: 0, w: 0}
     colorValue: {r: 1, g: 1, b: 1, a: 1}

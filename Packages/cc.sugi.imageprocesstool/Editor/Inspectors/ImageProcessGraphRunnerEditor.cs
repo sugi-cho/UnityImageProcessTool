@@ -7,22 +7,31 @@ namespace sugi.cc.ImageProcessTool.Editor
     internal sealed class ImageProcessGraphRunnerEditor : UnityEditor.Editor
     {
         private SerializedProperty graphProperty;
-        private SerializedProperty outputDestinationsProperty;
         private SerializedProperty parameterOverrideBindingsProperty;
         private SerializedProperty updateTimingProperty;
         private SerializedProperty executeOnEnableProperty;
         private SerializedProperty executeInEditModeProperty;
         private SerializedProperty logErrorsProperty;
+        private readonly System.Collections.Generic.Dictionary<string, RenderTexture> previewCache = new();
+        private bool previewRefreshQueued;
+        private string previewError = string.Empty;
+        private double lastPreviewRefreshTime;
 
         private void OnEnable()
         {
             graphProperty = serializedObject.FindProperty("graph");
-            outputDestinationsProperty = serializedObject.FindProperty("outputDestinations");
             parameterOverrideBindingsProperty = serializedObject.FindProperty("parameterOverrideBindings");
             updateTimingProperty = serializedObject.FindProperty("updateTiming");
             executeOnEnableProperty = serializedObject.FindProperty("executeOnEnable");
             executeInEditModeProperty = serializedObject.FindProperty("executeInEditMode");
             logErrorsProperty = serializedObject.FindProperty("logErrors");
+        }
+
+        private void OnDisable()
+        {
+            ClearPreviewCache();
+            previewRefreshQueued = false;
+            previewError = string.Empty;
         }
 
         public override void OnInspectorGUI()
@@ -49,7 +58,9 @@ namespace sugi.cc.ImageProcessTool.Editor
             }
 
             DrawParameterOverrides();
-            DrawOutputDestinations();
+            serializedObject.ApplyModifiedProperties();
+            serializedObject.Update();
+            DrawOutputDestinations(runner);
 
             EditorGUILayout.PropertyField(updateTimingProperty);
             EditorGUILayout.PropertyField(executeOnEnableProperty);
@@ -66,10 +77,14 @@ namespace sugi.cc.ImageProcessTool.Editor
             }
         }
 
-        private void DrawOutputDestinations()
+        private void DrawOutputDestinations(ImageProcessGraphRunner runner)
         {
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("Output Destinations", EditorStyles.boldLabel);
+
+            var bindings = runner.OutputDestinations ?? System.Array.Empty<ImageProcessGraphRunner.OutputDestinationBinding>();
+            var outputNodeNames = new string[bindings.Length];
+            var previewExpandedStates = new bool[bindings.Length];
 
             if (graphProperty.objectReferenceValue == null)
             {
@@ -77,43 +92,267 @@ namespace sugi.cc.ImageProcessTool.Editor
                 return;
             }
 
-            if (outputDestinationsProperty.arraySize == 0)
+            if (bindings.Length == 0)
             {
                 EditorGUILayout.HelpBox("GraphAsset に Output ノードがありません。", MessageType.Info);
                 return;
             }
 
-            for (var i = 0; i < outputDestinationsProperty.arraySize; i++)
+            var bindingsChanged = false;
+            for (var i = 0; i < bindings.Length; i++)
             {
-                var element = outputDestinationsProperty.GetArrayElementAtIndex(i);
-                var outputNodeNameProperty = element.FindPropertyRelative("outputNodeName");
-                var destinationProperty = element.FindPropertyRelative("destination");
-                var previewExpandedProperty = element.FindPropertyRelative("previewExpanded");
+                var binding = bindings[i];
+                if (binding == null)
+                {
+                    continue;
+                }
 
                 using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
                 {
-                    var label = string.IsNullOrWhiteSpace(outputNodeNameProperty.stringValue)
-                        ? $"Output {i + 1}"
-                        : outputNodeNameProperty.stringValue;
-                    EditorGUILayout.LabelField(label, EditorStyles.boldLabel);
+                    var outputNodeName = string.IsNullOrWhiteSpace(binding.OutputNodeName) ? $"Output {i + 1}" : binding.OutputNodeName;
+                    outputNodeNames[i] = outputNodeName;
+                    EditorGUILayout.LabelField(
+                        outputNodeName,
+                        EditorStyles.boldLabel);
 
-                    EditorGUILayout.PropertyField(destinationProperty, new GUIContent("Destination"));
+                    using (new EditorGUI.DisabledScope(true))
+                    {
+                        EditorGUILayout.TextField("Output Node Name", binding.OutputNodeName);
+                    }
 
-                    var destination = destinationProperty.objectReferenceValue as RenderTexture;
-                    previewExpandedProperty.boolValue = EditorGUILayout.Foldout(
-                        previewExpandedProperty.boolValue,
-                        destination == null ? "Preview (No Output)" : $"Preview ({destination.width}x{destination.height})",
-                        true);
+                    EditorGUI.BeginChangeCheck();
+                    var destination = (RenderTexture)EditorGUILayout.ObjectField(
+                        "Destination",
+                        binding.Destination,
+                        typeof(RenderTexture),
+                        false);
+                    var previewExpanded = EditorGUILayout.Toggle("Preview Expanded", binding.PreviewExpanded);
+                    if (EditorGUI.EndChangeCheck())
+                    {
+                        Undo.RecordObject(runner, "Edit Output Destination");
+                        binding.Destination = destination;
+                        binding.PreviewExpanded = previewExpanded;
+                        EditorUtility.SetDirty(runner);
+                        bindingsChanged = true;
+                    }
 
-                    if (!previewExpandedProperty.boolValue || destination == null)
+                    previewExpandedStates[i] = previewExpanded;
+                }
+            }
+
+            EditorGUILayout.Space(4f);
+            EditorGUILayout.LabelField("Output Previews", EditorStyles.boldLabel);
+            var hasExpandedPreview = false;
+
+            for (var i = 0; i < bindings.Length; i++)
+            {
+                if (previewExpandedStates[i])
+                {
+                    hasExpandedPreview = true;
+                }
+            }
+
+            if (hasExpandedPreview)
+            {
+                RequestPreviewRefresh(runner, GUI.changed || bindingsChanged);
+            }
+
+            for (var i = 0; i < bindings.Length; i++)
+            {
+                if (!previewExpandedStates[i])
+                {
+                    continue;
+                }
+
+                using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
+                {
+                    var outputNodeName = outputNodeNames[i];
+                    EditorGUILayout.LabelField(outputNodeName, EditorStyles.boldLabel);
+
+                    if (previewCache.TryGetValue(outputNodeName, out var previewTexture) && previewTexture != null)
+                    {
+                        EditorGUILayout.LabelField($"Preview ({previewTexture.width}x{previewTexture.height})", EditorStyles.miniLabel);
+                        var previewRect = GUILayoutUtility.GetRect(1f, 140f, GUILayout.ExpandWidth(true));
+                        EditorGUI.DrawPreviewTexture(previewRect, previewTexture, null, ScaleMode.ScaleToFit);
+                        continue;
+                    }
+
+                    if (previewRefreshQueued)
+                    {
+                        EditorGUILayout.HelpBox("Preview を更新中です。", MessageType.Info);
+                        continue;
+                    }
+
+                    var message = string.IsNullOrWhiteSpace(previewError)
+                        ? "Preview を生成できませんでした。"
+                        : $"Preview を生成できませんでした。{previewError}";
+                    EditorGUILayout.HelpBox(message, MessageType.Info);
+                }
+            }
+
+            if (!hasExpandedPreview)
+            {
+                EditorGUILayout.HelpBox("Preview Expanded をオンにすると、ここに Preview が表示されます。", MessageType.Info);
+            }
+
+            if (bindingsChanged)
+            {
+                GUI.changed = true;
+            }
+        }
+
+        private void RequestPreviewRefresh(ImageProcessGraphRunner runner, bool forceRefresh)
+        {
+            if (previewRefreshQueued || runner == null || runner.Graph == null)
+            {
+                return;
+            }
+
+            if (!forceRefresh &&
+                previewCache.Count > 0 &&
+                EditorApplication.timeSinceStartup - lastPreviewRefreshTime < 0.5d)
+            {
+                return;
+            }
+
+            previewRefreshQueued = true;
+            var editor = this;
+            EditorApplication.delayCall += () =>
+            {
+                if (editor == null)
+                {
+                    return;
+                }
+
+                editor.previewRefreshQueued = false;
+                var currentRunner = editor.target as ImageProcessGraphRunner;
+                if (currentRunner == null)
+                {
+                    return;
+                }
+
+                editor.RefreshPreviewCache(currentRunner);
+                editor.Repaint();
+            };
+        }
+
+        private void RefreshPreviewCache(ImageProcessGraphRunner runner)
+        {
+            previewError = string.Empty;
+            var result = default(ImageProcessExecutionResult);
+            try
+            {
+                if (!runner.TryEvaluateGraph(out result, out var error))
+                {
+                    previewError = string.IsNullOrWhiteSpace(error) ? "Preview を生成できませんでした。" : error;
+                    ClearPreviewCache();
+                    return;
+                }
+
+                var activeOutputNames = new System.Collections.Generic.HashSet<string>();
+                foreach (var node in runner.Graph.Nodes)
+                {
+                    if (node == null || node.nodeKind != ImageProcessNodeKind.Output)
                     {
                         continue;
                     }
 
-                    var previewRect = GUILayoutUtility.GetRect(1f, 140f, GUILayout.ExpandWidth(true));
-                    EditorGUI.DrawPreviewTexture(previewRect, destination, null, ScaleMode.ScaleToFit);
+                    var outputNodeName = string.IsNullOrWhiteSpace(node.displayName) ? "Output" : node.displayName;
+                    if (!result.TryGetNodeOutputTexture(node.nodeId, out var texture) || texture == null)
+                    {
+                        continue;
+                    }
+
+                    CachePreviewTexture(outputNodeName, texture);
+                    activeOutputNames.Add(outputNodeName);
+                }
+
+                TrimPreviewCache(activeOutputNames);
+                if (activeOutputNames.Count == 0)
+                {
+                    previewError = "Output Preview が取得できませんでした。";
                 }
             }
+            catch (System.Exception ex)
+            {
+                previewError = ex.Message;
+                ClearPreviewCache();
+            }
+            finally
+            {
+                lastPreviewRefreshTime = EditorApplication.timeSinceStartup;
+                result?.Dispose();
+            }
+        }
+
+        private void CachePreviewTexture(string outputNodeName, RenderTexture source)
+        {
+            if (string.IsNullOrWhiteSpace(outputNodeName) || source == null)
+            {
+                return;
+            }
+
+            if (!previewCache.TryGetValue(outputNodeName, out var cached) ||
+                cached == null ||
+                cached.width != source.width ||
+                cached.height != source.height)
+            {
+                ReleasePreviewCacheTexture(outputNodeName);
+                cached = new RenderTexture(source.width, source.height, 0, RenderTextureFormat.ARGBHalf)
+                {
+                    name = $"RunnerPreview_{outputNodeName}",
+                    filterMode = FilterMode.Bilinear,
+                    wrapMode = TextureWrapMode.Clamp
+                };
+                cached.Create();
+                previewCache[outputNodeName] = cached;
+            }
+
+            Graphics.Blit(source, cached);
+        }
+
+        private void TrimPreviewCache(System.Collections.Generic.HashSet<string> activeOutputNames)
+        {
+            var removeKeys = new System.Collections.Generic.List<string>();
+            foreach (var key in previewCache.Keys)
+            {
+                if (!activeOutputNames.Contains(key))
+                {
+                    removeKeys.Add(key);
+                }
+            }
+
+            foreach (var key in removeKeys)
+            {
+                ReleasePreviewCacheTexture(key);
+            }
+        }
+
+        private void ClearPreviewCache()
+        {
+            var keys = new System.Collections.Generic.List<string>(previewCache.Keys);
+            foreach (var key in keys)
+            {
+                ReleasePreviewCacheTexture(key);
+            }
+        }
+
+        private void ReleasePreviewCacheTexture(string outputNodeName)
+        {
+            if (!previewCache.TryGetValue(outputNodeName, out var texture) || texture == null)
+            {
+                previewCache.Remove(outputNodeName);
+                return;
+            }
+
+            if (RenderTexture.active == texture)
+            {
+                RenderTexture.active = null;
+            }
+
+            texture.Release();
+            Object.DestroyImmediate(texture);
+            previewCache.Remove(outputNodeName);
         }
 
         private void DrawParameterOverrides()

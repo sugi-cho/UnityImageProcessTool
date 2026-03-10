@@ -38,6 +38,18 @@ namespace sugi.cc.ImageProcessTool
                 node.parameterId = parameters.FirstOrDefault()?.parameterId;
                 SyncParameterNode(node);
             }
+            else if (kind == ImageProcessNodeKind.BlurOperator || kind == ImageProcessNodeKind.IterativeFilterOperator)
+            {
+                node.SetPorts(
+                    new List<ImageProcessPortDefinition>
+                    {
+                        new("in_rgba", "RGBA", ImageProcessPortType.Texture, ImageProcessPortDirection.Input, false)
+                    },
+                    new List<ImageProcessPortDefinition>
+                    {
+                        new("out_rgba", "RGBA", ImageProcessPortType.Texture, ImageProcessPortDirection.Output, false)
+                    });
+            }
 
             nodes.Add(node);
             return node;

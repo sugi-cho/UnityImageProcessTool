@@ -32,7 +32,12 @@ namespace sugi.cc.ImageProcessTool
 
             var outputs = new Dictionary<string, ImageProcessValue>();
             var outputNodeIds = new List<string>();
-            var incomingEdges = graph.Edges.GroupBy(e => e.inputNodeId).ToDictionary(g => g.Key, g => g.ToList());
+            if (!ImageProcessGraphTopology.TryCollectExecutableSubgraph(graph, out _, out var executableEdges, out error))
+            {
+                return false;
+            }
+
+            var incomingEdges = executableEdges.GroupBy(e => e.inputNodeId).ToDictionary(g => g.Key, g => g.ToList());
 
             try
             {
@@ -116,6 +121,12 @@ namespace sugi.cc.ImageProcessTool
 
                 case ImageProcessNodeKind.ShaderOperator:
                     return TryExecuteShaderNode(node, incomingEdges, outputs, out output, out error);
+
+                case ImageProcessNodeKind.BlurOperator:
+                    return TryExecuteBlurNode(node, incomingEdges, outputs, out output, out error);
+
+                case ImageProcessNodeKind.IterativeFilterOperator:
+                    return TryExecuteIterativeFilterNode(node, incomingEdges, outputs, out output, out error);
 
                 case ImageProcessNodeKind.Output:
                     return TryExecuteOutputNode(node, incomingEdges, outputs, out output, out error);
@@ -326,6 +337,106 @@ namespace sugi.cc.ImageProcessTool
             return true;
         }
 
+        private static bool TryExecuteBlurNode(
+            ImageProcessNodeData node,
+            Dictionary<string, List<ImageProcessEdgeData>> incomingEdges,
+            Dictionary<string, ImageProcessValue> outputs,
+            out ImageProcessValue output,
+            out string error)
+        {
+            output = null;
+            if (!TryGetTextureInput(node, incomingEdges, outputs, "in_rgba", out var source, out error))
+            {
+                return false;
+            }
+
+            var settings = BuildIterativeFilterSettings(node, out error);
+            if (settings == null)
+            {
+                output = null;
+                return false;
+            }
+
+            if (!ImageProcessIterativeFilterExecutor.TryExecute(source, settings, out var filtered, out error))
+            {
+                output = null;
+                return false;
+            }
+
+            output = ImageProcessValue.FromTexture(filtered);
+            error = string.Empty;
+            return true;
+        }
+
+        private static bool TryExecuteIterativeFilterNode(
+            ImageProcessNodeData node,
+            Dictionary<string, List<ImageProcessEdgeData>> incomingEdges,
+            Dictionary<string, ImageProcessValue> outputs,
+            out ImageProcessValue output,
+            out string error)
+        {
+            output = null;
+            if (!TryGetTextureInput(node, incomingEdges, outputs, "in_rgba", out var source, out error))
+            {
+                return false;
+            }
+
+            var settings = BuildIterativeFilterSettings(node, out error);
+            if (settings == null)
+            {
+                return false;
+            }
+
+            if (!ImageProcessIterativeFilterExecutor.TryExecute(source, settings, out var filtered, out error))
+            {
+                return false;
+            }
+
+            output = ImageProcessValue.FromTexture(filtered);
+            error = string.Empty;
+            return true;
+        }
+
+        private static ImageProcessIterativeFilterSettings BuildIterativeFilterSettings(ImageProcessNodeData node, out string error)
+        {
+            error = string.Empty;
+
+            if (node == null)
+            {
+                error = "Node is null.";
+                return null;
+            }
+
+            if (node.nodeKind == ImageProcessNodeKind.BlurOperator ||
+                node.iterativeFilterKind == ImageProcessIterativeFilterKind.Blur)
+            {
+                return ImageProcessIterativeFilterSettings.CreateBlur(
+                    node.blurMode,
+                    node.blurIterations,
+                    node.blurRadius,
+                    node.blurDownsample);
+            }
+
+            if (node.iterativeFilterKind == ImageProcessIterativeFilterKind.Dilate)
+            {
+                return ImageProcessIterativeFilterSettings.CreateDilate(
+                    node.blurIterations,
+                    node.blurRadius,
+                    node.blurDownsample);
+            }
+
+            if (node.iterativeFilterKind == ImageProcessIterativeFilterKind.Erode)
+            {
+                return ImageProcessIterativeFilterSettings.CreateErode(
+                    node.blurIterations,
+                    node.blurRadius,
+                    node.blurDownsample);
+            }
+
+            error = $"Unsupported iterative filter kind: {node.iterativeFilterKind}";
+            return null;
+        }
+
         private static ImageProcessGraphParameter ResolveGraphParameter(
             ImageProcessGraphAsset graph,
             string parameterId,
@@ -364,6 +475,36 @@ namespace sugi.cc.ImageProcessTool
                         break;
                 }
             }
+        }
+
+        private static bool TryGetTextureInput(
+            ImageProcessNodeData node,
+            Dictionary<string, List<ImageProcessEdgeData>> incomingEdges,
+            Dictionary<string, ImageProcessValue> outputs,
+            string inputPortId,
+            out RenderTexture texture,
+            out string error)
+        {
+            texture = null;
+            incomingEdges.TryGetValue(node.nodeId, out var edges);
+            var edge = edges?.FirstOrDefault(e => e.inputPortId == inputPortId);
+            if (edge == null)
+            {
+                error = $"Missing input: {node.displayName}.{inputPortId}";
+                return false;
+            }
+
+            if (!outputs.TryGetValue(edge.outputNodeId, out var inputValue) ||
+                inputValue == null ||
+                !inputValue.TryGetTexture(out texture) ||
+                texture == null)
+            {
+                error = $"Upstream output is not texture: {edge.outputNodeId}";
+                return false;
+            }
+
+            error = string.Empty;
+            return true;
         }
 
         private static RenderTexture CreateOutputTexture(int width, int height)

@@ -24,6 +24,7 @@ namespace sugi.cc.ImageProcessTool.Editor
         private Foldout previewFoldout;
         private Image previewImage;
         private RenderTexture previewTexture;
+        private TextField nameField;
 
         public ImageProcessNodeView(
             ImageProcessNodeData nodeData,
@@ -73,16 +74,38 @@ namespace sugi.cc.ImageProcessTool.Editor
 
         public void SetPreviewTexture(RenderTexture texture)
         {
-            previewTexture = texture;
+            if (texture == null)
+            {
+                ReleasePreviewTexture();
+                if (previewImage != null)
+                {
+                    previewImage.image = null;
+                }
+
+                if (previewFoldout != null)
+                {
+                    previewFoldout.text = "Preview (No Output)";
+                }
+
+                return;
+            }
+
+            EnsurePreviewTexture(texture.width, texture.height);
+            Graphics.Blit(texture, previewTexture);
             if (previewImage != null)
             {
-                previewImage.image = texture;
+                previewImage.image = previewTexture;
             }
 
             if (previewFoldout != null)
             {
-                previewFoldout.text = texture == null ? "Preview (No Output)" : $"Preview ({texture.width}x{texture.height})";
+                previewFoldout.text = $"Preview ({texture.width}x{texture.height})";
             }
+        }
+
+        public void DisposePreview()
+        {
+            ReleasePreviewTexture();
         }
 
         private string BuildTitle(ImageProcessNodeData nodeData)
@@ -121,7 +144,7 @@ namespace sugi.cc.ImageProcessTool.Editor
 
             if (NodeData.nodeKind != ImageProcessNodeKind.Parameter)
             {
-                var nameField = new TextField("Name")
+                nameField = new TextField("Name")
                 {
                     value = NodeData.displayName
                 };
@@ -145,7 +168,15 @@ namespace sugi.cc.ImageProcessTool.Editor
                 shaderField.RegisterValueChangedCallback(evt =>
                 {
                     NodeData.shader = evt.newValue as Shader;
+                    if (NodeData.shader != null)
+                    {
+                        NodeData.displayName = NodeData.shader.name;
+                        title = BuildTitle(NodeData);
+                        nameField?.SetValueWithoutNotify(NodeData.displayName);
+                    }
+
                     onNodeDataChanged?.Invoke(NodeData);
+                    onShaderSyncRequested?.Invoke(NodeData);
                 });
                 extensionContainer.Add(shaderField);
 
@@ -160,12 +191,88 @@ namespace sugi.cc.ImageProcessTool.Editor
                     AddParameterField(parameter);
                 }
             }
+            else if (NodeData.nodeKind == ImageProcessNodeKind.BlurOperator)
+            {
+                BuildBlurSettingsFields(includeFilterKind: false);
+            }
+            else if (NodeData.nodeKind == ImageProcessNodeKind.IterativeFilterOperator)
+            {
+                BuildBlurSettingsFields(includeFilterKind: true);
+            }
             else if (NodeData.nodeKind == ImageProcessNodeKind.Parameter)
             {
                 BuildParameterNodeFields();
             }
             BuildPreviewSection();
             RefreshExpandedState();
+        }
+
+        private void BuildBlurSettingsFields(bool includeFilterKind)
+        {
+            var filterKind = includeFilterKind ? NodeData.iterativeFilterKind : ImageProcessIterativeFilterKind.Blur;
+            if (includeFilterKind)
+            {
+                var filterKindField = new EnumField("Filter", NodeData.iterativeFilterKind);
+                filterKindField.RegisterValueChangedCallback(evt =>
+                {
+                    if (evt.newValue is ImageProcessIterativeFilterKind filterKind)
+                    {
+                        NodeData.iterativeFilterKind = filterKind;
+                        onNodeDataChanged?.Invoke(NodeData);
+                    }
+                });
+                extensionContainer.Add(filterKindField);
+            }
+
+            if (filterKind == ImageProcessIterativeFilterKind.Blur)
+            {
+                var modeField = new EnumField("Mode", NodeData.blurMode);
+                modeField.RegisterValueChangedCallback(evt =>
+                {
+                    if (evt.newValue is ImageProcessBlurMode mode)
+                    {
+                        NodeData.blurMode = mode;
+                        onNodeDataChanged?.Invoke(NodeData);
+                    }
+                });
+                extensionContainer.Add(modeField);
+            }
+
+            var radiusField = new FloatField("Radius")
+            {
+                value = NodeData.blurRadius
+            };
+            radiusField.RegisterValueChangedCallback(evt =>
+            {
+                NodeData.blurRadius = Mathf.Max(0.001f, evt.newValue);
+                radiusField.SetValueWithoutNotify(NodeData.blurRadius);
+                onNodeDataChanged?.Invoke(NodeData);
+            });
+            extensionContainer.Add(radiusField);
+
+            var iterationField = new IntegerField("Iterations")
+            {
+                value = NodeData.blurIterations
+            };
+            iterationField.RegisterValueChangedCallback(evt =>
+            {
+                NodeData.blurIterations = Mathf.Max(1, evt.newValue);
+                iterationField.SetValueWithoutNotify(NodeData.blurIterations);
+                onNodeDataChanged?.Invoke(NodeData);
+            });
+            extensionContainer.Add(iterationField);
+
+            var downsampleField = new IntegerField("Downsample")
+            {
+                value = NodeData.blurDownsample
+            };
+            downsampleField.RegisterValueChangedCallback(evt =>
+            {
+                NodeData.blurDownsample = Mathf.Clamp(evt.newValue, 0, 4);
+                downsampleField.SetValueWithoutNotify(NodeData.blurDownsample);
+                onNodeDataChanged?.Invoke(NodeData);
+            });
+            extensionContainer.Add(downsampleField);
         }
 
         private void BuildParameterNodeFields()
@@ -290,7 +397,7 @@ namespace sugi.cc.ImageProcessTool.Editor
             {
                 previewFoldout = null;
                 previewImage = null;
-                previewTexture = null;
+                ReleasePreviewTexture();
                 return;
             }
 
@@ -480,6 +587,49 @@ namespace sugi.cc.ImageProcessTool.Editor
                 PortId = portId;
                 Direction = direction;
             }
+        }
+
+        private void EnsurePreviewTexture(int width, int height)
+        {
+            if (previewTexture != null && previewTexture.width == width && previewTexture.height == height)
+            {
+                if (!previewTexture.IsCreated())
+                {
+                    previewTexture.Create();
+                }
+
+                return;
+            }
+
+            ReleasePreviewTexture();
+            previewTexture = new RenderTexture(width, height, 0, RenderTextureFormat.ARGBHalf)
+            {
+                name = $"NodePreview_{NodeData.nodeId}",
+                filterMode = FilterMode.Bilinear,
+                wrapMode = TextureWrapMode.Clamp
+            };
+            previewTexture.Create();
+        }
+
+        private void ReleasePreviewTexture()
+        {
+            if (previewTexture == null)
+            {
+                return;
+            }
+
+            if (RenderTexture.active == previewTexture)
+            {
+                RenderTexture.active = null;
+            }
+
+            previewTexture.Release();
+#if UNITY_EDITOR
+            UnityEngine.Object.DestroyImmediate(previewTexture);
+#else
+            UnityEngine.Object.Destroy(previewTexture);
+#endif
+            previewTexture = null;
         }
     }
 }

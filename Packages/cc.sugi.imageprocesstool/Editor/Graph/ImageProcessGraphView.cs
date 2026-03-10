@@ -12,6 +12,7 @@ namespace sugi.cc.ImageProcessTool.Editor
         private static readonly Vector2 DropNodeOffsetStep = new(28f, 28f);
         private ImageProcessGraphAsset graphAsset;
         private readonly Dictionary<string, ImageProcessNodeView> nodeViews = new();
+        private readonly Dictionary<string, RenderTexture> previewCache = new();
         private bool suppressGraphEvents;
 
         public event System.Action GraphDataChanged;
@@ -37,6 +38,11 @@ namespace sugi.cc.ImageProcessTool.Editor
 
         public void BindGraph(ImageProcessGraphAsset graph)
         {
+            if (graphAsset != graph)
+            {
+                ClearPreviewCache();
+            }
+
             graphAsset = graph;
             graphAsset?.SyncParameterNodes();
             Rebuild();
@@ -48,11 +54,19 @@ namespace sugi.cc.ImageProcessTool.Editor
             {
                 if (result != null && result.TryGetNodeOutputTexture(nodeView.NodeData.nodeId, out var outputTexture))
                 {
-                    nodeView.SetPreviewTexture(outputTexture);
+                    CachePreviewTexture(nodeView.NodeData.nodeId, outputTexture);
+                    nodeView.SetPreviewTexture(previewCache[nodeView.NodeData.nodeId]);
                 }
                 else
                 {
-                    nodeView.SetPreviewTexture(null);
+                    if (previewCache.TryGetValue(nodeView.NodeData.nodeId, out var cachedTexture))
+                    {
+                        nodeView.SetPreviewTexture(cachedTexture);
+                    }
+                    else
+                    {
+                        nodeView.SetPreviewTexture(null);
+                    }
                 }
             }
         }
@@ -146,6 +160,11 @@ namespace sugi.cc.ImageProcessTool.Editor
             suppressGraphEvents = true;
             try
             {
+                foreach (var nodeView in nodeViews.Values)
+                {
+                    nodeView.DisposePreview();
+                }
+
                 DeleteElements(graphElements.ToList());
                 nodeViews.Clear();
 
@@ -161,6 +180,11 @@ namespace sugi.cc.ImageProcessTool.Editor
                     var nodeView = CreateNodeView(nodeData);
                     nodeViews[nodeData.nodeId] = nodeView;
                     AddElement(nodeView);
+
+                    if (previewCache.TryGetValue(nodeData.nodeId, out var cachedTexture))
+                    {
+                        nodeView.SetPreviewTexture(cachedTexture);
+                    }
                 }
 
                 foreach (var edgeData in graphAsset.Edges)
@@ -185,6 +209,8 @@ namespace sugi.cc.ImageProcessTool.Editor
                     var edge = outputPort.ConnectTo(inputPort);
                     AddElement(edge);
                 }
+
+                TrimPreviewCache();
             }
             finally
             {
@@ -238,6 +264,8 @@ namespace sugi.cc.ImageProcessTool.Editor
             evt.menu.AppendAction("Add/Parameter/Vector4", _ => AddParameterNode(ImageProcessPortType.Vector4, localPosition));
             evt.menu.AppendAction("Add/Parameter/Color", _ => AddParameterNode(ImageProcessPortType.Color, localPosition));
             evt.menu.AppendAction("Add/Shader Node", _ => AddNode(ImageProcessNodeKind.ShaderOperator, "Shader", localPosition));
+            evt.menu.AppendAction("Add/Blur Node", _ => AddNode(ImageProcessNodeKind.BlurOperator, "Blur", localPosition));
+            evt.menu.AppendAction("Add/Iterative Filter Node", _ => AddNode(ImageProcessNodeKind.IterativeFilterOperator, "Iterative Filter", localPosition));
             evt.menu.AppendAction("Add/Output Node", _ => AddNode(ImageProcessNodeKind.Output, "Output", localPosition));
         }
 
@@ -452,13 +480,89 @@ namespace sugi.cc.ImageProcessTool.Editor
                 return;
             }
 
+            if (RenderTexture.active != null)
+            {
+                RenderTexture.active = null;
+            }
+
             EditorUtility.SetDirty(graphAsset);
-            AssetDatabase.SaveAssets();
         }
 
         private void NotifyGraphDataChanged()
         {
             GraphDataChanged?.Invoke();
+        }
+
+        private void CachePreviewTexture(string nodeId, RenderTexture source)
+        {
+            if (string.IsNullOrWhiteSpace(nodeId) || source == null)
+            {
+                return;
+            }
+
+            if (!previewCache.TryGetValue(nodeId, out var cached) ||
+                cached == null ||
+                cached.width != source.width ||
+                cached.height != source.height)
+            {
+                ReleasePreviewCacheTexture(nodeId);
+                cached = new RenderTexture(source.width, source.height, 0, RenderTextureFormat.ARGBHalf)
+                {
+                    name = $"GraphPreviewCache_{nodeId}",
+                    filterMode = FilterMode.Bilinear,
+                    wrapMode = TextureWrapMode.Clamp
+                };
+                cached.Create();
+                previewCache[nodeId] = cached;
+            }
+
+            Graphics.Blit(source, cached);
+        }
+
+        private void TrimPreviewCache()
+        {
+            if (graphAsset == null)
+            {
+                ClearPreviewCache();
+                return;
+            }
+
+            var validNodeIds = new HashSet<string>(graphAsset.Nodes.Where(x => x != null).Select(x => x.nodeId));
+            var removeIds = previewCache.Keys.Where(x => !validNodeIds.Contains(x)).ToList();
+            foreach (var nodeId in removeIds)
+            {
+                ReleasePreviewCacheTexture(nodeId);
+            }
+        }
+
+        private void ClearPreviewCache()
+        {
+            foreach (var nodeId in previewCache.Keys.ToList())
+            {
+                ReleasePreviewCacheTexture(nodeId);
+            }
+        }
+
+        private void ReleasePreviewCacheTexture(string nodeId)
+        {
+            if (!previewCache.TryGetValue(nodeId, out var texture) || texture == null)
+            {
+                previewCache.Remove(nodeId);
+                return;
+            }
+
+            if (RenderTexture.active == texture)
+            {
+                RenderTexture.active = null;
+            }
+
+            texture.Release();
+#if UNITY_EDITOR
+            Object.DestroyImmediate(texture);
+#else
+            Object.Destroy(texture);
+#endif
+            previewCache.Remove(nodeId);
         }
 
         private void AddNodesFromDrop(List<Object> droppedObjects, Vector2 localPosition)

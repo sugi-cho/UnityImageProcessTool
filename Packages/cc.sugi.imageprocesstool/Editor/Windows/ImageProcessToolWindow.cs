@@ -10,6 +10,7 @@ namespace sugi.cc.ImageProcessTool.Editor
     {
         private ImageProcessGraphAsset graphAsset;
         private ImageProcessExecutionResult executionResult;
+        private bool autoExecuteScheduled;
 
         private ObjectField graphObjectField;
         private HelpBox statusHelpBox;
@@ -79,22 +80,32 @@ namespace sugi.cc.ImageProcessTool.Editor
             toolbar.Add(graphObjectField);
 
             toolbar.Add(new ToolbarButton(CreateGraphAsset) { text = "New" });
-            var parameterMenu = new ToolbarMenu
+            var addNodeMenu = new ToolbarMenu
             {
-                text = "Add Parameter"
+                text = "Add Node"
             };
-            toolbar.Add(parameterMenu);
-            toolbar.Add(new ToolbarButton(() => AddNode(ImageProcessNodeKind.ShaderOperator, "Shader")) { text = "Add Shader" });
-            toolbar.Add(new ToolbarButton(() => AddNode(ImageProcessNodeKind.Output, "Output")) { text = "Add Output" });
-            toolbar.Add(new ToolbarButton(SyncShaderNodes) { text = "Sync Shader Ports" });
-            toolbar.Add(new ToolbarButton(ValidateGraph) { text = "Validate" });
-            toolbar.Add(new ToolbarButton(SaveGraphAsset) { text = "Save" });
-            toolbar.Add(new ToolbarButton(() => graphView?.Rebuild()) { text = "Reload View" });
+            toolbar.Add(addNodeMenu);
 
-            parameterMenu.menu.AppendAction("Texture", _ => AddParameterNode(ImageProcessPortType.Texture));
-            parameterMenu.menu.AppendAction("Float", _ => AddParameterNode(ImageProcessPortType.Float));
-            parameterMenu.menu.AppendAction("Vector4", _ => AddParameterNode(ImageProcessPortType.Vector4));
-            parameterMenu.menu.AppendAction("Color", _ => AddParameterNode(ImageProcessPortType.Color));
+            var toolsMenu = new ToolbarMenu
+            {
+                text = "Tools"
+            };
+            toolbar.Add(toolsMenu);
+
+            toolbar.Add(new ToolbarButton(SaveGraphAsset) { text = "Save" });
+
+            addNodeMenu.menu.AppendAction("Parameter/Texture", _ => AddParameterNode(ImageProcessPortType.Texture));
+            addNodeMenu.menu.AppendAction("Parameter/Float", _ => AddParameterNode(ImageProcessPortType.Float));
+            addNodeMenu.menu.AppendAction("Parameter/Vector4", _ => AddParameterNode(ImageProcessPortType.Vector4));
+            addNodeMenu.menu.AppendAction("Parameter/Color", _ => AddParameterNode(ImageProcessPortType.Color));
+            addNodeMenu.menu.AppendAction("Shader", _ => AddNode(ImageProcessNodeKind.ShaderOperator, "Shader"));
+            addNodeMenu.menu.AppendAction("Blur", _ => AddNode(ImageProcessNodeKind.BlurOperator, "Blur"));
+            addNodeMenu.menu.AppendAction("Iterative Filter", _ => AddNode(ImageProcessNodeKind.IterativeFilterOperator, "Iterative Filter"));
+            addNodeMenu.menu.AppendAction("Output", _ => AddNode(ImageProcessNodeKind.Output, "Output"));
+
+            toolsMenu.menu.AppendAction("Sync Shader Ports", _ => SyncShaderNodes());
+            toolsMenu.menu.AppendAction("Validate", _ => ValidateGraph());
+            toolsMenu.menu.AppendAction("Reload View", _ => graphView?.Rebuild());
 
             return toolbar;
         }
@@ -212,9 +223,15 @@ namespace sugi.cc.ImageProcessTool.Editor
                 return;
             }
 
+            if (RenderTexture.active != null)
+            {
+                RenderTexture.active = null;
+            }
+
             EditorUtility.SetDirty(graphAsset);
             AssetDatabase.SaveAssets();
             SetStatus("Graph asset saved.", HelpBoxMessageType.Info);
+            ScheduleAutoExecuteGraph();
         }
 
         private bool EnsureGraphAssigned()
@@ -230,7 +247,7 @@ namespace sugi.cc.ImageProcessTool.Editor
 
         private void OnGraphDataChanged()
         {
-            AutoExecuteGraph();
+            ScheduleAutoExecuteGraph();
         }
 
         private void AutoExecuteGraph()
@@ -240,17 +257,47 @@ namespace sugi.cc.ImageProcessTool.Editor
                 return;
             }
 
-            DisposeExecutionResult();
             if (!ImageProcessGraphExecutor.TryExecute(graphAsset, out var result, out var error))
             {
-                graphView?.ApplyExecutionResult(null);
                 SetStatus($"Auto-run failed: {error}", HelpBoxMessageType.Warning);
                 return;
             }
 
+            var previousResult = executionResult;
             executionResult = result;
             graphView?.ApplyExecutionResult(executionResult);
+            previousResult?.Dispose();
             SetStatus($"Auto-run completed. Output nodes: {executionResult.OutputNodeIds.Count}", HelpBoxMessageType.Info);
+        }
+
+        private void ScheduleAutoExecuteGraph()
+        {
+            if (autoExecuteScheduled)
+            {
+                return;
+            }
+
+            autoExecuteScheduled = true;
+#if UNITY_EDITOR
+            EditorApplication.delayCall += DelayedAutoExecuteGraph;
+#else
+            DelayedAutoExecuteGraph();
+#endif
+        }
+
+        private void DelayedAutoExecuteGraph()
+        {
+#if UNITY_EDITOR
+            EditorApplication.delayCall -= DelayedAutoExecuteGraph;
+#endif
+            autoExecuteScheduled = false;
+
+            if (this == null || !EnsureGraphAssigned())
+            {
+                return;
+            }
+
+            AutoExecuteGraph();
         }
 
         private void DisposeExecutionResult()

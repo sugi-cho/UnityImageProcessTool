@@ -1,13 +1,14 @@
 # Unity Image Process Tool
 
 Unity 6 + URP 向けの、ノードベース画像処理ツールです。  
-`ImageProcessGraphAsset` を編集し、`Texture -> Shader -> Output` の流れで画像処理を組み立てます。
+`ImageProcessGraphAsset` を編集し、`Texture -> Shader / Blur -> Output` の流れで画像処理を組み立てます。
 
 ## 概要
 
 - エディタ拡張として `Tools/sugi.cc/Image Process Tool` から起動できます
-- `Parameter` / `Shader` / `Output` ノードを接続して処理フローを作成できます
+- `Parameter` / `Shader` / `Blur` / `Output` ノードを接続して処理フローを作成できます
 - `Shader` ノードは、設定した `Shader` / `ShaderGraph` のプロパティから入力ポートを自動生成できます
+- `Blur` ノードは `Box` / `Gaussian` / `Kawase` を切り替え、反復回数やダウンサンプルを設定できます
 - グラフ編集時に自動実行され、各ノードのプレビューを確認できます
 - 出力は `RenderTexture` への反映、または PNG / EXR / Texture2D Asset として保存できます
 
@@ -42,12 +43,13 @@ https://github.com/sugi-cho/UnityImageProcessTool.git?path=/Packages/cc.sugi.ima
 1. Unity でプロジェクトを開きます
 2. `Tools/sugi.cc/Image Process Tool` を開きます
 3. `New` で `ImageProcessGraphAsset` を作成します
-4. `Add Parameter`、`Add Shader`、`Add Output` でノードを追加します
+4. `Add Parameter`、`Add Shader`、`Add Blur`、`Add Output` でノードを追加します
 5. `Shader` ノードに `Shader` または `ShaderGraph` を設定します
-6. `Sync Shader Ports` を押して、シェーダープロパティから入力ポートを生成します
-7. ノード同士を接続します
-8. `Validate` で構成を確認します
-9. 必要に応じて出力を保存、または `ImageProcessGraphRunner` から `RenderTexture` に書き出します
+6. 必要に応じて `Blur` ノードの方式、反復回数、半径、ダウンサンプルを設定します
+7. `Sync Shader Ports` を押して、シェーダープロパティから入力ポートを生成します
+8. ノード同士を接続します
+9. `Validate` で構成を確認します
+10. 必要に応じて出力を保存、または `ImageProcessGraphRunner` から `RenderTexture` に書き出します
 
 ## ShaderGraph の制限
 
@@ -61,7 +63,7 @@ https://github.com/sugi-cho/UnityImageProcessTool.git?path=/Packages/cc.sugi.ima
 
 ## 現在の実装範囲
 
-- 実行確認済みの基本構成は `Parameter -> Shader -> Output`
+- 実行確認済みの基本構成は `Parameter -> Shader/Blur -> Output`
 - `Shader` ノードの入力型は `Texture` / `Float` / `Vector4` / `Color`
 - 必須入力の未接続、循環参照、型不一致はバリデーションで検出されます
 

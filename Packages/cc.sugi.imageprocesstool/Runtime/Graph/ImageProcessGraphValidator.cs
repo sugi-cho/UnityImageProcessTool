@@ -15,13 +15,15 @@ namespace sugi.cc.ImageProcessTool
 
             graph.EnsureNodeIds();
 
-            var nodes = graph.Nodes.ToList();
-            var edges = graph.Edges.ToList();
+            if (!ImageProcessGraphTopology.TryCollectExecutableSubgraph(graph, out var nodes, out var edges, out error))
+            {
+                return false;
+            }
 
             if (nodes.Count == 0)
             {
-                error = "Graph has no node.";
-                return false;
+                error = string.Empty;
+                return true;
             }
 
             if (nodes.GroupBy(n => n.nodeId).Any(g => g.Count() > 1))
@@ -124,6 +126,36 @@ namespace sugi.cc.ImageProcessTool
                         if (node.outputPorts.Count != 1 || node.outputPorts[0].portType != parameter.parameterType)
                         {
                             error = $"Parameter node port mismatch: {node.displayName}";
+                            return false;
+                        }
+                        break;
+
+                    case ImageProcessNodeKind.BlurOperator:
+                    case ImageProcessNodeKind.IterativeFilterOperator:
+                        if (node.inputPorts.Count != 1 ||
+                            node.outputPorts.Count != 1 ||
+                            node.inputPorts[0].portType != ImageProcessPortType.Texture ||
+                            node.outputPorts[0].portType != ImageProcessPortType.Texture)
+                        {
+                            error = $"Iterative filter node port mismatch: {node.displayName}";
+                            return false;
+                        }
+
+                        if (node.blurIterations < 1)
+                        {
+                            error = $"Iterative filter iterations must be >= 1: {node.displayName}";
+                            return false;
+                        }
+
+                        if (node.blurRadius <= 0f)
+                        {
+                            error = $"Iterative filter radius must be > 0: {node.displayName}";
+                            return false;
+                        }
+
+                        if (node.blurDownsample < 0 || node.blurDownsample > 4)
+                        {
+                            error = $"Iterative filter downsample must be between 0 and 4: {node.displayName}";
                             return false;
                         }
                         break;
