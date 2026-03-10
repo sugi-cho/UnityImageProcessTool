@@ -179,6 +179,18 @@ namespace sugi.cc.ImageProcessTool
             RemoveInvalidEdges();
         }
 
+        public int RemoveUnusedParameters()
+        {
+            var removedCount = parameters.RemoveAll(parameter => parameter != null && !HasParameterNodeReference(parameter));
+            if (removedCount > 0)
+            {
+                SyncParameterNodes();
+                RemoveInvalidEdges();
+            }
+
+            return removedCount;
+        }
+
         public ImageProcessGraphParameter FindParameter(string parameterId)
         {
             return parameters.FirstOrDefault(x => x.parameterId == parameterId);
@@ -326,6 +338,20 @@ namespace sugi.cc.ImageProcessTool
         private static bool RequiresUniqueDisplayName(ImageProcessNodeKind kind)
         {
             return kind == ImageProcessNodeKind.Output;
+        }
+
+        private bool HasParameterNodeReference(ImageProcessGraphParameter parameter)
+        {
+            if (parameter == null)
+            {
+                return false;
+            }
+
+            return nodes.Any(node =>
+                node != null &&
+                node.nodeKind == ImageProcessNodeKind.Parameter &&
+                (node.parameterId == parameter.parameterId ||
+                 (!string.IsNullOrWhiteSpace(node.displayName) && node.displayName == parameter.parameterName)));
         }
     }
 }

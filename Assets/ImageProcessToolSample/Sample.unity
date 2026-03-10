@@ -623,22 +623,6 @@ MonoBehaviour:
     floatValue: 0
     vectorValue: {x: 0, y: 0, z: 0, w: 0}
     colorValue: {r: 1, g: 1, b: 1, a: 1}
-  - parameterId: e1e08b8429da4586a94fcac797bc240a
-    parameterName: Color 2
-    parameterType: 3
-    overrideEnabled: 0
-    textureValue: {fileID: 0}
-    floatValue: 0
-    vectorValue: {x: 0, y: 0, z: 0, w: 0}
-    colorValue: {r: 1, g: 1, b: 1, a: 1}
-  - parameterId: ca23b286134f4026aced2acf36be59a1
-    parameterName: Vector
-    parameterType: 2
-    overrideEnabled: 0
-    textureValue: {fileID: 0}
-    floatValue: 0
-    vectorValue: {x: 0, y: 0, z: 0, w: 0}
-    colorValue: {r: 1, g: 1, b: 1, a: 1}
   - parameterId: a9cecb0dcfa84eac9f1eb162bae7ecd5
     parameterName: a
     parameterType: 0

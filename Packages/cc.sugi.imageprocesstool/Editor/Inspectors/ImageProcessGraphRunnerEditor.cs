@@ -29,6 +29,11 @@ namespace sugi.cc.ImageProcessTool.Editor
 
         private void OnDisable()
         {
+            if (RenderTexture.active != null)
+            {
+                RenderTexture.active = null;
+            }
+
             ClearPreviewCache();
             previewRefreshQueued = false;
             previewError = string.Empty;
@@ -173,7 +178,7 @@ namespace sugi.cc.ImageProcessTool.Editor
                     {
                         EditorGUILayout.LabelField($"Preview ({previewTexture.width}x{previewTexture.height})", EditorStyles.miniLabel);
                         var previewRect = GUILayoutUtility.GetRect(1f, 140f, GUILayout.ExpandWidth(true));
-                        EditorGUI.DrawPreviewTexture(previewRect, previewTexture, null, ScaleMode.ScaleToFit);
+                        DrawAlphaPreview(previewRect, previewTexture);
                         continue;
                     }
 
@@ -330,6 +335,11 @@ namespace sugi.cc.ImageProcessTool.Editor
 
         private void ClearPreviewCache()
         {
+            if (RenderTexture.active != null)
+            {
+                RenderTexture.active = null;
+            }
+
             var keys = new System.Collections.Generic.List<string>(previewCache.Keys);
             foreach (var key in keys)
             {
@@ -345,7 +355,7 @@ namespace sugi.cc.ImageProcessTool.Editor
                 return;
             }
 
-            if (RenderTexture.active == texture)
+            if (RenderTexture.active != null)
             {
                 RenderTexture.active = null;
             }
@@ -353,6 +363,12 @@ namespace sugi.cc.ImageProcessTool.Editor
             texture.Release();
             Object.DestroyImmediate(texture);
             previewCache.Remove(outputNodeName);
+        }
+
+        private static void DrawAlphaPreview(Rect rect, Texture texture)
+        {
+            EditorGUI.DrawTextureTransparent(rect, Texture2D.grayTexture, ScaleMode.StretchToFill);
+            GUI.DrawTexture(rect, texture, ScaleMode.ScaleToFit, true);
         }
 
         private void DrawParameterOverrides()

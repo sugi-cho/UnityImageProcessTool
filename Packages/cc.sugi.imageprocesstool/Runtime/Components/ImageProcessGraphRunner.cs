@@ -4,6 +4,7 @@ using UnityEngine.Serialization;
 using UnityEditor;
 #endif
 using System.Collections.Generic;
+using System.Linq;
 
 namespace sugi.cc.ImageProcessTool
 {
@@ -415,6 +416,16 @@ namespace sugi.cc.ImageProcessTool
                 return hadOverrides;
             }
 
+            var reachableNodeIds = ImageProcessGraphTopology.CollectReachableNodeIdsFromOutputs(graph);
+            var activeParameterIds = new HashSet<string>(
+                graph.Nodes
+                    .Where(node =>
+                        node != null &&
+                        node.nodeKind == ImageProcessNodeKind.Parameter &&
+                        !string.IsNullOrWhiteSpace(node.parameterId) &&
+                        reachableNodeIds.Contains(node.nodeId))
+                    .Select(node => node.parameterId));
+
             var previousMap = new Dictionary<string, ParameterOverrideBinding>();
             foreach (var binding in previous)
             {
@@ -426,10 +437,14 @@ namespace sugi.cc.ImageProcessTool
                 previousMap[binding.ParameterId] = binding;
             }
 
-            var bindings = new ParameterOverrideBinding[graph.Parameters.Count];
-            for (var i = 0; i < graph.Parameters.Count; i++)
+            var activeParameters = graph.Parameters
+                .Where(parameter => parameter != null && activeParameterIds.Contains(parameter.parameterId))
+                .ToList();
+
+            var bindings = new ParameterOverrideBinding[activeParameters.Count];
+            for (var i = 0; i < activeParameters.Count; i++)
             {
-                var parameter = graph.Parameters[i];
+                var parameter = activeParameters[i];
                 previousMap.TryGetValue(parameter.parameterId, out var previousBinding);
                 bindings[i] = new ParameterOverrideBinding
                 {

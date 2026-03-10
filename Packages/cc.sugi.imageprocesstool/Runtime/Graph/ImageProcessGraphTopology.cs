@@ -5,6 +5,67 @@ namespace sugi.cc.ImageProcessTool
 {
     public static class ImageProcessGraphTopology
     {
+        public static HashSet<string> CollectReachableNodeIdsFromOutputs(ImageProcessGraphAsset graph)
+        {
+            var reachable = new HashSet<string>();
+            if (graph == null)
+            {
+                return reachable;
+            }
+
+            graph.EnsureNodeIds();
+
+            var nodes = graph.Nodes.Where(n => n != null).ToList();
+            var nodeIds = new HashSet<string>(nodes.Select(n => n.nodeId));
+            var incoming = new Dictionary<string, List<ImageProcessEdgeData>>();
+
+            foreach (var edge in graph.Edges.Where(e => e != null))
+            {
+                if (string.IsNullOrWhiteSpace(edge.outputNodeId) ||
+                    string.IsNullOrWhiteSpace(edge.inputNodeId) ||
+                    edge.outputNodeId == edge.inputNodeId ||
+                    !nodeIds.Contains(edge.outputNodeId) ||
+                    !nodeIds.Contains(edge.inputNodeId))
+                {
+                    continue;
+                }
+
+                if (!incoming.TryGetValue(edge.inputNodeId, out var list))
+                {
+                    list = new List<ImageProcessEdgeData>();
+                    incoming[edge.inputNodeId] = list;
+                }
+
+                list.Add(edge);
+            }
+
+            var stack = new Stack<string>(
+                nodes
+                    .Where(n => n.nodeKind == ImageProcessNodeKind.Output)
+                    .Select(n => n.nodeId));
+
+            while (stack.Count > 0)
+            {
+                var nodeId = stack.Pop();
+                if (!reachable.Add(nodeId))
+                {
+                    continue;
+                }
+
+                if (!incoming.TryGetValue(nodeId, out var incomingEdges))
+                {
+                    continue;
+                }
+
+                foreach (var edge in incomingEdges)
+                {
+                    stack.Push(edge.outputNodeId);
+                }
+            }
+
+            return reachable;
+        }
+
         public static bool TryCollectExecutableSubgraph(
             ImageProcessGraphAsset graph,
             out List<ImageProcessNodeData> executableNodes,
@@ -50,30 +111,7 @@ namespace sugi.cc.ImageProcessTool
                 list.Add(edge);
             }
 
-            var reachable = new HashSet<string>();
-            var stack = new Stack<string>(
-                nodes
-                    .Where(n => n.nodeKind == ImageProcessNodeKind.Output)
-                    .Select(n => n.nodeId));
-
-            while (stack.Count > 0)
-            {
-                var nodeId = stack.Pop();
-                if (!reachable.Add(nodeId))
-                {
-                    continue;
-                }
-
-                if (!incoming.TryGetValue(nodeId, out var incomingEdges))
-                {
-                    continue;
-                }
-
-                foreach (var edge in incomingEdges)
-                {
-                    stack.Push(edge.outputNodeId);
-                }
-            }
+            var reachable = CollectReachableNodeIdsFromOutputs(graph);
 
             executableNodes = nodes.Where(n => reachable.Contains(n.nodeId)).ToList();
             executableEdges = edges.Where(e => reachable.Contains(e.outputNodeId) && reachable.Contains(e.inputNodeId)).ToList();

@@ -344,6 +344,13 @@ namespace sugi.cc.ImageProcessTool.Editor
                         shouldExecute = true;
                     }
                 }
+
+                if (graphAsset.RemoveUnusedParameters() > 0)
+                {
+                    shouldSave = true;
+                    shouldRebuild = true;
+                    shouldExecute = true;
+                }
             }
 
             if (change.edgesToCreate != null && change.edgesToCreate.Count > 0)
@@ -424,6 +431,7 @@ namespace sugi.cc.ImageProcessTool.Editor
                 if (nodeData.nodeKind == ImageProcessNodeKind.Parameter)
                 {
                     graphAsset.SyncParameterNode(nodeData);
+                    graphAsset.RemoveUnusedParameters();
                     graphAsset.RemoveInvalidEdges();
                     Rebuild();
                 }
