@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.Serialization;
+using UnityEngine.Rendering;
 #if UNITY_EDITOR
 using UnityEditor;
 #endif
@@ -12,6 +13,7 @@ namespace sugi.cc.ImageProcessTool
     {
         Update,
         LateUpdate,
+        OnChange,
         Manual
     }
 
@@ -117,6 +119,9 @@ namespace sugi.cc.ImageProcessTool
 
         private string lastError = string.Empty;
         private readonly Dictionary<string, ImageProcessGraphParameter> parameterOverrides = new();
+        private bool hasTrackedChangeState;
+        private int trackedChangeStateHash;
+        private bool pendingRunAfterFirstFrame;
 
         public ImageProcessGraphAsset Graph
         {
@@ -125,6 +130,7 @@ namespace sugi.cc.ImageProcessTool
             {
                 graph = value;
                 SyncOutputDestinations();
+                SyncParameterOverrides();
             }
         }
 
@@ -145,18 +151,27 @@ namespace sugi.cc.ImageProcessTool
         {
             SyncOutputDestinations();
             SyncParameterOverrides();
+            CaptureCurrentChangeState();
+            pendingRunAfterFirstFrame = false;
 
 #if UNITY_EDITOR
             EditorApplication.update -= OnEditorUpdate;
             EditorApplication.update += OnEditorUpdate;
 #endif
+            RenderPipelineManager.endFrameRendering -= OnEndFrameRendering;
+            RenderPipelineManager.endFrameRendering += OnEndFrameRendering;
 
-            if (!executeOnEnable || !ShouldExecuteInCurrentContext())
+            var shouldRunOnEnable = updateTiming != ImageProcessRunnerUpdateTiming.Manual;
+            if (!shouldRunOnEnable || !ShouldExecuteInCurrentContext())
             {
                 return;
             }
 
             ExecuteAndLogIfNeeded();
+            if (Application.isPlaying)
+            {
+                pendingRunAfterFirstFrame = true;
+            }
         }
 
         private void OnDisable()
@@ -164,21 +179,8 @@ namespace sugi.cc.ImageProcessTool
 #if UNITY_EDITOR
             EditorApplication.update -= OnEditorUpdate;
 #endif
-        }
-
-        private void Update()
-        {
-            if (!Application.isPlaying)
-            {
-                return;
-            }
-
-            if (updateTiming != ImageProcessRunnerUpdateTiming.Update)
-            {
-                return;
-            }
-
-            ExecuteAndLogIfNeeded();
+            RenderPipelineManager.endFrameRendering -= OnEndFrameRendering;
+            pendingRunAfterFirstFrame = false;
         }
 
         private void LateUpdate()
@@ -277,6 +279,10 @@ namespace sugi.cc.ImageProcessTool
             SyncOutputDestinations();
             SyncParameterOverrides();
             RebuildParameterOverrideMap();
+            if (!hasTrackedChangeState)
+            {
+                CaptureCurrentChangeState();
+            }
         }
 
 #if UNITY_EDITOR
@@ -292,9 +298,47 @@ namespace sugi.cc.ImageProcessTool
                 return;
             }
 
+            if (updateTiming == ImageProcessRunnerUpdateTiming.OnChange)
+            {
+                ExecuteIfTrackedStateChanged();
+                return;
+            }
+
             ExecuteAndLogIfNeeded();
         }
 #endif
+
+        private void Update()
+        {
+            if (!Application.isPlaying)
+            {
+                return;
+            }
+
+            if (updateTiming == ImageProcessRunnerUpdateTiming.OnChange)
+            {
+                ExecuteIfTrackedStateChanged();
+                return;
+            }
+
+            if (updateTiming != ImageProcessRunnerUpdateTiming.Update)
+            {
+                return;
+            }
+
+            ExecuteAndLogIfNeeded();
+        }
+
+        private void OnEndFrameRendering(ScriptableRenderContext context, Camera[] cameras)
+        {
+            if (!pendingRunAfterFirstFrame || !Application.isPlaying || updateTiming == ImageProcessRunnerUpdateTiming.Manual)
+            {
+                return;
+            }
+
+            pendingRunAfterFirstFrame = false;
+            ExecuteAndLogIfNeeded();
+        }
 
         private bool ShouldExecuteInCurrentContext()
         {
@@ -312,7 +356,10 @@ namespace sugi.cc.ImageProcessTool
 
         private void ExecuteAndLogIfNeeded()
         {
-            if (TryRunOnce(out var error))
+            var succeeded = TryRunOnce(out var error);
+            CaptureCurrentChangeState();
+
+            if (succeeded)
             {
                 lastError = string.Empty;
                 return;
@@ -325,6 +372,20 @@ namespace sugi.cc.ImageProcessTool
 
             lastError = error;
             Debug.LogWarning($"ImageProcessGraphRunner on '{name}' failed: {error}", this);
+        }
+
+        private void ExecuteIfTrackedStateChanged()
+        {
+            SyncOutputDestinations();
+            SyncParameterOverrides();
+
+            var currentHash = ComputeChangeStateHash();
+            if (hasTrackedChangeState && currentHash == trackedChangeStateHash)
+            {
+                return;
+            }
+
+            ExecuteAndLogIfNeeded();
         }
 
         public bool SyncOutputDestinations()
@@ -636,6 +697,68 @@ namespace sugi.cc.ImageProcessTool
                     vectorValue = binding.VectorValue,
                     colorValue = binding.ColorValue
                 };
+            }
+        }
+
+        private void CaptureCurrentChangeState()
+        {
+            trackedChangeStateHash = ComputeChangeStateHash();
+            hasTrackedChangeState = true;
+        }
+
+        private int ComputeChangeStateHash()
+        {
+            unchecked
+            {
+                var hash = 17;
+                hash = hash * 31 + (graph != null ? graph.GetInstanceID() : 0);
+                hash = hash * 31 + updateTiming.GetHashCode();
+
+                foreach (var binding in outputDestinations)
+                {
+                    if (binding == null)
+                    {
+                        hash = hash * 31;
+                        continue;
+                    }
+
+                    hash = hash * 31 + (binding.OutputNodeName?.GetHashCode() ?? 0);
+                    hash = hash * 31 + (binding.Destination != null ? binding.Destination.GetInstanceID() : 0);
+                }
+
+                foreach (var binding in parameterOverrideBindings)
+                {
+                    if (binding == null)
+                    {
+                        hash = hash * 31;
+                        continue;
+                    }
+
+                    hash = hash * 31 + (binding.ParameterId?.GetHashCode() ?? 0);
+                    hash = hash * 31 + binding.ParameterType.GetHashCode();
+                    hash = hash * 31 + binding.OverrideEnabled.GetHashCode();
+
+                    switch (binding.ParameterType)
+                    {
+                        case ImageProcessPortType.Texture:
+                            hash = hash * 31 + (binding.TextureValue != null ? binding.TextureValue.GetInstanceID() : 0);
+                            break;
+
+                        case ImageProcessPortType.Float:
+                            hash = hash * 31 + binding.FloatValue.GetHashCode();
+                            break;
+
+                        case ImageProcessPortType.Vector4:
+                            hash = hash * 31 + binding.VectorValue.GetHashCode();
+                            break;
+
+                        case ImageProcessPortType.Color:
+                            hash = hash * 31 + binding.ColorValue.GetHashCode();
+                            break;
+                    }
+                }
+
+                return hash;
             }
         }
     }

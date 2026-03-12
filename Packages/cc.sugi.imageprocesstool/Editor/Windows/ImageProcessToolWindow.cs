@@ -167,7 +167,7 @@ namespace sugi.cc.ImageProcessTool.Editor
                 return;
             }
 
-            graphView.AddParameterNode(parameterType, Vector2.zero);
+            graphView.AddParameterNode(parameterType);
             SetStatus($"Added {parameterType} parameter node.", HelpBoxMessageType.Info);
         }
 

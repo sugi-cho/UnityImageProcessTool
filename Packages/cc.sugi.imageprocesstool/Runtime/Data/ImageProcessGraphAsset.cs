@@ -201,6 +201,31 @@ namespace sugi.cc.ImageProcessTool
             return parameters.FirstOrDefault(x => x.parameterName == parameterName);
         }
 
+        public bool RenameParameter(string parameterId, string parameterName, out string resolvedName)
+        {
+            resolvedName = string.Empty;
+            if (string.IsNullOrWhiteSpace(parameterId))
+            {
+                return false;
+            }
+
+            var parameter = FindParameter(parameterId);
+            if (parameter == null)
+            {
+                return false;
+            }
+
+            resolvedName = MakeUniqueParameterName(parameterName, parameterId);
+            if (parameter.parameterName == resolvedName)
+            {
+                return false;
+            }
+
+            parameter.parameterName = resolvedName;
+            SyncParameterNodes();
+            return true;
+        }
+
         public string MakeUniqueParameterName(string parameterName, string excludeParameterId = null)
         {
             var baseName = string.IsNullOrWhiteSpace(parameterName) ? "Parameter" : parameterName.Trim();
