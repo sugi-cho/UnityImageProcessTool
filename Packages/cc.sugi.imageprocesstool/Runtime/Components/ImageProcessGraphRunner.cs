@@ -112,7 +112,6 @@ namespace sugi.cc.ImageProcessTool
         [SerializeField] private OutputDestinationBinding[] outputDestinations = System.Array.Empty<OutputDestinationBinding>();
         [SerializeField] private ParameterOverrideBinding[] parameterOverrideBindings = System.Array.Empty<ParameterOverrideBinding>();
         [SerializeField] private ImageProcessRunnerUpdateTiming updateTiming = ImageProcessRunnerUpdateTiming.Update;
-        [SerializeField] private bool executeOnEnable = true;
         [FormerlySerializedAs("runInEditMode")]
         [SerializeField] private bool executeInEditMode = true;
         [SerializeField] private bool logErrors = true;
@@ -158,8 +157,8 @@ namespace sugi.cc.ImageProcessTool
             EditorApplication.update -= OnEditorUpdate;
             EditorApplication.update += OnEditorUpdate;
 #endif
-            RenderPipelineManager.endFrameRendering -= OnEndFrameRendering;
-            RenderPipelineManager.endFrameRendering += OnEndFrameRendering;
+            RenderPipelineManager.endContextRendering -= OnEndContextRendering;
+            RenderPipelineManager.endContextRendering += OnEndContextRendering;
 
             var shouldRunOnEnable = updateTiming != ImageProcessRunnerUpdateTiming.Manual;
             if (!shouldRunOnEnable || !ShouldExecuteInCurrentContext())
@@ -179,7 +178,7 @@ namespace sugi.cc.ImageProcessTool
 #if UNITY_EDITOR
             EditorApplication.update -= OnEditorUpdate;
 #endif
-            RenderPipelineManager.endFrameRendering -= OnEndFrameRendering;
+            RenderPipelineManager.endContextRendering -= OnEndContextRendering;
             pendingRunAfterFirstFrame = false;
         }
 
@@ -329,7 +328,7 @@ namespace sugi.cc.ImageProcessTool
             ExecuteAndLogIfNeeded();
         }
 
-        private void OnEndFrameRendering(ScriptableRenderContext context, Camera[] cameras)
+        private void OnEndContextRendering(ScriptableRenderContext context, List<Camera> cameras)
         {
             if (!pendingRunAfterFirstFrame || !Application.isPlaying || updateTiming == ImageProcessRunnerUpdateTiming.Manual)
             {

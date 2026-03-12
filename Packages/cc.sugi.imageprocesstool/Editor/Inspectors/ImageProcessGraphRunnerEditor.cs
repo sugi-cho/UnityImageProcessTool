@@ -9,7 +9,6 @@ namespace sugi.cc.ImageProcessTool.Editor
         private SerializedProperty graphProperty;
         private SerializedProperty parameterOverrideBindingsProperty;
         private SerializedProperty updateTimingProperty;
-        private SerializedProperty executeOnEnableProperty;
         private SerializedProperty executeInEditModeProperty;
         private SerializedProperty logErrorsProperty;
         private readonly System.Collections.Generic.Dictionary<string, RenderTexture> previewCache = new();
@@ -22,7 +21,6 @@ namespace sugi.cc.ImageProcessTool.Editor
             graphProperty = serializedObject.FindProperty("graph");
             parameterOverrideBindingsProperty = serializedObject.FindProperty("parameterOverrideBindings");
             updateTimingProperty = serializedObject.FindProperty("updateTiming");
-            executeOnEnableProperty = serializedObject.FindProperty("executeOnEnable");
             executeInEditModeProperty = serializedObject.FindProperty("executeInEditMode");
             logErrorsProperty = serializedObject.FindProperty("logErrors");
         }
@@ -68,7 +66,6 @@ namespace sugi.cc.ImageProcessTool.Editor
             DrawOutputDestinations(runner);
 
             EditorGUILayout.PropertyField(updateTimingProperty);
-            EditorGUILayout.PropertyField(executeOnEnableProperty);
             if (executeInEditModeProperty != null)
             {
                 EditorGUILayout.PropertyField(executeInEditModeProperty);
