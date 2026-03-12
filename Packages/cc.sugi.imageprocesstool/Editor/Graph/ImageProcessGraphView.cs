@@ -73,7 +73,7 @@ namespace sugi.cc.ImageProcessTool.Editor
 
         public void AddNode(ImageProcessNodeKind kind, string displayName)
         {
-            AddNode(kind, displayName, Vector2.zero);
+            AddNode(kind, displayName, GetCurrentViewCenterPosition());
         }
 
         public void AddNode(ImageProcessNodeKind kind, string displayName, Vector2 localPosition)
@@ -93,6 +93,11 @@ namespace sugi.cc.ImageProcessTool.Editor
             SaveGraphAsset();
             Rebuild();
             NotifyGraphDataChanged();
+        }
+
+        public void AddParameterNode(ImageProcessPortType parameterType)
+        {
+            AddParameterNode(parameterType, GetCurrentViewCenterPosition());
         }
 
         public void AddParameterNode(ImageProcessPortType parameterType, Vector2 localPosition)
@@ -430,6 +435,13 @@ namespace sugi.cc.ImageProcessTool.Editor
             {
                 if (nodeData.nodeKind == ImageProcessNodeKind.Parameter)
                 {
+                    var parameter = graphAsset.FindParameter(nodeData.parameterId);
+                    if (parameter != null && parameter.parameterName != nodeData.displayName)
+                    {
+                        graphAsset.RenameParameter(nodeData.parameterId, nodeData.displayName, out var resolvedName);
+                        nodeData.displayName = resolvedName;
+                    }
+
                     graphAsset.SyncParameterNode(nodeData);
                     graphAsset.RemoveUnusedParameters();
                     graphAsset.RemoveInvalidEdges();
@@ -499,6 +511,11 @@ namespace sugi.cc.ImageProcessTool.Editor
         private void NotifyGraphDataChanged()
         {
             GraphDataChanged?.Invoke();
+        }
+
+        private Vector2 GetCurrentViewCenterPosition()
+        {
+            return contentViewContainer.WorldToLocal(worldBound.center);
         }
 
         private void CachePreviewTexture(string nodeId, RenderTexture source)

@@ -24,7 +24,8 @@ namespace sugi.cc.ImageProcessTool.Editor
         private Foldout previewFoldout;
         private Image previewImage;
         private RenderTexture previewTexture;
-        private TextField nameField;
+        private TextField titleEditField;
+        private bool isEditingTitle;
 
         public ImageProcessNodeView(
             ImageProcessNodeData nodeData,
@@ -42,6 +43,7 @@ namespace sugi.cc.ImageProcessTool.Editor
             title = BuildTitle(nodeData);
             viewDataKey = nodeData.nodeId;
 
+            BuildTitleEditor();
             BuildPorts();
             BuildInspectorFields();
 
@@ -138,26 +140,65 @@ namespace sugi.cc.ImageProcessTool.Editor
             }
         }
 
+        private void BuildTitleEditor()
+        {
+            titleContainer.RegisterCallback<MouseDownEvent>(evt =>
+            {
+                if (evt.button != 0 || evt.clickCount != 2)
+                {
+                    return;
+                }
+
+                BeginTitleEdit();
+                evt.StopPropagation();
+            });
+
+            titleEditField = new TextField
+            {
+                value = NodeData.displayName
+            };
+            titleEditField.style.display = DisplayStyle.None;
+            titleEditField.style.flexGrow = 1f;
+            titleEditField.style.marginLeft = 0f;
+            titleEditField.style.marginRight = 0f;
+            titleEditField.RegisterValueChangedCallback(evt =>
+            {
+                if (!isEditingTitle)
+                {
+                    return;
+                }
+
+                NodeData.displayName = evt.newValue;
+            });
+            titleEditField.RegisterCallback<FocusOutEvent>(_ => EndTitleEdit(applyChanges: true));
+            titleEditField.RegisterCallback<KeyDownEvent>(evt =>
+            {
+                switch (evt.keyCode)
+                {
+                    case KeyCode.Return:
+                    case KeyCode.KeypadEnter:
+                        EndTitleEdit(applyChanges: true);
+                        evt.StopPropagation();
+                        break;
+
+                    case KeyCode.Escape:
+                        EndTitleEdit(applyChanges: false);
+                        evt.StopPropagation();
+                        break;
+                }
+            });
+            titleContainer.Add(titleEditField);
+        }
+
         private void BuildInspectorFields()
         {
             extensionContainer.Clear();
 
-            if (NodeData.nodeKind != ImageProcessNodeKind.Parameter)
+            if (NodeData.nodeKind == ImageProcessNodeKind.Parameter)
             {
-                nameField = new TextField("Name")
-                {
-                    value = NodeData.displayName
-                };
-                nameField.RegisterValueChangedCallback(evt =>
-                {
-                    NodeData.displayName = evt.newValue;
-                    title = BuildTitle(NodeData);
-                    onNodeDataChanged?.Invoke(NodeData);
-                });
-                extensionContainer.Add(nameField);
+                BuildParameterNodeFields();
             }
-
-            if (NodeData.nodeKind == ImageProcessNodeKind.ShaderOperator)
+            else if (NodeData.nodeKind == ImageProcessNodeKind.ShaderOperator)
             {
                 var shaderField = new ObjectField("Shader")
                 {
@@ -171,8 +212,7 @@ namespace sugi.cc.ImageProcessTool.Editor
                     if (NodeData.shader != null)
                     {
                         NodeData.displayName = NodeData.shader.name;
-                        title = BuildTitle(NodeData);
-                        nameField?.SetValueWithoutNotify(NodeData.displayName);
+                        UpdateTitleDisplay();
                     }
 
                     onNodeDataChanged?.Invoke(NodeData);
@@ -198,10 +238,6 @@ namespace sugi.cc.ImageProcessTool.Editor
             else if (NodeData.nodeKind == ImageProcessNodeKind.IterativeFilterOperator)
             {
                 BuildBlurSettingsFields(includeFilterKind: true);
-            }
-            else if (NodeData.nodeKind == ImageProcessNodeKind.Parameter)
-            {
-                BuildParameterNodeFields();
             }
             BuildPreviewSection();
             RefreshExpandedState();
@@ -318,7 +354,7 @@ namespace sugi.cc.ImageProcessTool.Editor
 
                 NodeData.parameterId = parameters[index].parameterId;
                 NodeData.displayName = parameters[index].parameterName;
-                title = BuildTitle(NodeData);
+                UpdateTitleDisplay();
                 onNodeDataChanged?.Invoke(NodeData);
             });
             extensionContainer.Add(popup);
@@ -631,6 +667,71 @@ namespace sugi.cc.ImageProcessTool.Editor
                 ImageProcessPortType.Color => typeof(Color),
                 _ => typeof(object)
             };
+        }
+
+        private void BeginTitleEdit()
+        {
+            if (titleEditField == null || isEditingTitle)
+            {
+                return;
+            }
+
+            isEditingTitle = true;
+            titleEditField.SetValueWithoutNotify(NodeData.displayName);
+            titleEditField.style.display = DisplayStyle.Flex;
+            SetTitleLabelVisible(false);
+            titleEditField.schedule.Execute(() =>
+            {
+                titleEditField.Focus();
+                titleEditField.SelectAll();
+            });
+        }
+
+        private void EndTitleEdit(bool applyChanges)
+        {
+            if (titleEditField == null || !isEditingTitle)
+            {
+                return;
+            }
+
+            isEditingTitle = false;
+
+            if (!applyChanges)
+            {
+                titleEditField.SetValueWithoutNotify(NodeData.displayName);
+            }
+            else
+            {
+                var nextName = string.IsNullOrWhiteSpace(titleEditField.value)
+                    ? NodeData.nodeKind.ToString()
+                    : titleEditField.value.Trim();
+
+                if (NodeData.displayName != nextName)
+                {
+                    NodeData.displayName = nextName;
+                    onNodeDataChanged?.Invoke(NodeData);
+                }
+            }
+
+            titleEditField.style.display = DisplayStyle.None;
+            UpdateTitleDisplay();
+            SetTitleLabelVisible(true);
+        }
+
+        private void UpdateTitleDisplay()
+        {
+            title = BuildTitle(NodeData);
+        }
+
+        private void SetTitleLabelVisible(bool visible)
+        {
+            var titleLabel = titleContainer.Q<Label>();
+            if (titleLabel == null)
+            {
+                return;
+            }
+
+            titleLabel.style.display = visible ? DisplayStyle.Flex : DisplayStyle.None;
         }
 
         internal readonly struct PortHandle
